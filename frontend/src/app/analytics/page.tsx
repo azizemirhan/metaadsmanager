@@ -6,6 +6,7 @@ import {
   Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 import { api, Campaign } from "../lib/api";
+import { useAccount } from "../components/AccountContext";
 
 /* ── Metric definitions ────────────────────────────────────── */
 type MetricKey = "spend" | "clicks" | "ctr" | "cpc" | "cpm" | "roas";
@@ -43,21 +44,22 @@ const metricByKey = Object.fromEntries(METRICS.map((m) => [m.key, m])) as Record
 export default function AnalyticsPage() {
   const [days, setDays] = useState(30);
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(["spend"]);
+  const { selectedAccountId } = useAccount();
 
   /* API queries */
   const { data: summaryData, isLoading: summaryLoading } = useQuery({
-    queryKey: ["summary", days],
-    queryFn: () => api.getSummary(days),
+    queryKey: ["summary", days, selectedAccountId],
+    queryFn: () => api.getSummary(days, selectedAccountId),
   });
 
   const { data: dailyData, isLoading: dailyLoading } = useQuery({
-    queryKey: ["daily", days],
-    queryFn: () => api.getDaily(days),
+    queryKey: ["daily", days, selectedAccountId],
+    queryFn: () => api.getDaily(days, selectedAccountId),
   });
 
   const { data: campaignsData, isLoading: campaignsLoading } = useQuery({
-    queryKey: ["campaigns", days],
-    queryFn: () => api.getCampaigns(days),
+    queryKey: ["campaigns", days, selectedAccountId],
+    queryFn: () => api.getCampaigns(days, selectedAccountId),
   });
 
   const daily = dailyData?.data || [];

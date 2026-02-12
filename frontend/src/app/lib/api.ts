@@ -12,17 +12,25 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return res.json();
 }
 
+function _acctParam(accountId?: string | null) {
+  return accountId ? `&ad_account_id=${accountId}` : "";
+}
+
 export const api = {
+  // Accounts
+  getAccounts: () =>
+    apiFetch<{ data: AdAccount[]; count: number }>("/api/campaigns/accounts"),
+
   // Campaigns
-  getCampaigns: (days = 30) =>
-    apiFetch<{ data: Campaign[]; count: number }>(`/api/campaigns?days=${days}`),
-  
-  getSummary: (days = 30) =>
-    apiFetch<AccountSummary>(`/api/campaigns/summary?days=${days}`),
-  
-  getDaily: (days = 30) =>
-    apiFetch<{ data: DailyData[] }>(`/api/campaigns/daily?days=${days}`),
-  
+  getCampaigns: (days = 30, accountId?: string | null) =>
+    apiFetch<{ data: Campaign[]; count: number }>(`/api/campaigns?days=${days}${_acctParam(accountId)}`),
+
+  getSummary: (days = 30, accountId?: string | null) =>
+    apiFetch<AccountSummary>(`/api/campaigns/summary?days=${days}${_acctParam(accountId)}`),
+
+  getDaily: (days = 30, accountId?: string | null) =>
+    apiFetch<{ data: DailyData[] }>(`/api/campaigns/daily?days=${days}${_acctParam(accountId)}`),
+
   getCampaignAds: (id: string, days = 30) =>
     apiFetch<{ data: Ad[] }>(`/api/campaigns/${id}/ads?days=${days}`),
 
@@ -139,3 +147,11 @@ export interface SettingsField {
 export type SettingsResponse = Record<string, SettingsField>;
 
 export type SettingsUpdate = Partial<Record<string, string>>;
+
+export interface AdAccount {
+  id: string;
+  name: string;
+  status: number;
+  currency: string;
+  timezone: string;
+}

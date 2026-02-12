@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, Campaign } from "../lib/api";
+import { useAccount } from "../components/AccountContext";
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Aktif", PAUSED: "Duraklatıldı", DELETED: "Silindi", ARCHIVED: "Arşivlendi"
@@ -25,10 +26,11 @@ export default function CampaignsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [exportLoading, setExportLoading] = useState(false);
+  const { selectedAccountId } = useAccount();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["campaigns", days],
-    queryFn: () => api.getCampaigns(days),
+    queryKey: ["campaigns", days, selectedAccountId],
+    queryFn: () => api.getCampaigns(days, selectedAccountId),
   });
 
   const campaigns = (data?.data || [])

@@ -72,12 +72,44 @@ class MetaAdsService:
             "until": end.strftime("%Y-%m-%d")
         }
 
-    async def get_campaigns(self, days: int = 30) -> list[dict]:
-        """Tüm kampanyaları ve temel metriklerini getirir"""
+    def _resolve_account(self, ad_account_id: Optional[str] = None) -> str:
+        """Return the account ID to use (provided or default)."""
+        return ad_account_id or self.account_id
+
+    async def get_ad_accounts(self) -> list[dict]:
+        """Kullanicinin erisebilecegi reklam hesaplarini listele"""
+        if not self.token or not self.token.strip():
+            return []
+        try:
+            data = await self._get(
+                "me/adaccounts",
+                params={
+                    "fields": "id,name,account_status,currency,timezone_name",
+                    "limit": "50",
+                }
+            )
+            accounts = data.get("data", [])
+            # account_status: 1=ACTIVE, 2=DISABLED, 3=UNSETTLED
+            return [
+                {
+                    "id": acc.get("id", ""),
+                    "name": acc.get("name", ""),
+                    "status": acc.get("account_status", 0),
+                    "currency": acc.get("currency", ""),
+                    "timezone": acc.get("timezone_name", ""),
+                }
+                for acc in accounts
+            ]
+        except Exception:
+            return []
+
+    async def get_campaigns(self, days: int = 30, ad_account_id: Optional[str] = None) -> list[dict]:
+        """Tum kampanyalari ve temel metriklerini getirir"""
         if not _is_meta_configured():
             return []
+        account = self._resolve_account(ad_account_id)
         data = await self._get(
-            f"{self.account_id}/campaigns",
+            f"{account}/campaigns",
             params={
                 "fields": "id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time",
                 "date_preset": f"last_{days}d" if days <= 90 else "last_90d"
@@ -86,9 +118,9 @@ class MetaAdsService:
         campaigns = data.get("data", [])
         if not campaigns:
             import logging
-            logging.info(f"Meta API: Kampanya listesi boş (son {days} gün). Hesap: {self.account_id}")
+            logging.info(f"Meta API: Kampanya listesi bos (son {days} gun). Hesap: {account}")
 
-        # Her kampanya için insights çek
+        # Her kampanya icin insights cek
         enriched = []
         for campaign in campaigns:
             insights = await self.get_campaign_insights(campaign["id"], days)
@@ -142,11 +174,12 @@ class MetaAdsService:
             "conversions": 0, "conversion_value": 0, "roas": 0
         }
 
-    async def get_ad_sets(self, campaign_id: Optional[str] = None, days: int = 30) -> list[dict]:
+    async def get_ad_sets(self, campaign_id: Optional[str] = None, days: int = 30, ad_account_id: Optional[str] = None) -> list[dict]:
         """Reklam setlerini getirir"""
         if not _is_meta_configured():
             return []
-        endpoint = f"{campaign_id}/adsets" if campaign_id else f"{self.account_id}/adsets"
+        account = self._resolve_account(ad_account_id)
+        endpoint = f"{campaign_id}/adsets" if campaign_id else f"{account}/adsets"
         data = await self._get(
             endpoint,
             params={
@@ -155,11 +188,12 @@ class MetaAdsService:
         )
         return data.get("data", [])
 
-    async def get_ads(self, campaign_id: Optional[str] = None, days: int = 30) -> list[dict]:
-        """Reklamları getirir"""
+    async def get_ads(self, campaign_id: Optional[str] = None, days: int = 30, ad_account_id: Optional[str] = None) -> list[dict]:
+        """Reklamlari getirir"""
         if not _is_meta_configured():
             return []
-        endpoint = f"{campaign_id}/ads" if campaign_id else f"{self.account_id}/ads"
+        account = self._resolve_account(ad_account_id)
+        endpoint = f"{campaign_id}/ads" if campaign_id else f"{account}/ads"
         data = await self._get(
             endpoint,
             params={
@@ -174,12 +208,13 @@ class MetaAdsService:
             enriched.append({**ad, **insights})
         return enriched
 
-    async def get_daily_breakdown(self, days: int = 30) -> list[dict]:
-        """Günlük performans breakdown"""
+    async def get_daily_breakdown(self, days: int = 30, ad_account_id: Optional[str] = None) -> list[dict]:
+        """Gunluk performans breakdown"""
         if not _is_meta_configured():
             return []
+        account = self._resolve_account(ad_account_id)
         data = await self._get(
-            f"{self.account_id}/insights",
+            f"{account}/insights",
             params={
                 "fields": "impressions,clicks,spend,reach,ctr,cpc,actions",
                 "time_range": str(self._date_range(days)).replace("'", '"'),
@@ -188,12 +223,13 @@ class MetaAdsService:
         )
         return data.get("data", [])
 
-    async def get_account_summary(self, days: int = 30) -> dict:
-        """Hesap geneli özet"""
+    async def get_account_summary(self, days: int = 30, ad_account_id: Optional[str] = None) -> dict:
+        """Hesap geneli ozet"""
         if not _is_meta_configured():
             return {}
+        account = self._resolve_account(ad_account_id)
         data = await self._get(
-            f"{self.account_id}/insights",
+            f"{account}/insights",
             params={
                 "fields": "impressions,clicks,spend,reach,ctr,cpc,cpm,actions,action_values",
                 "time_range": str(self._date_range(days)).replace("'", '"'),

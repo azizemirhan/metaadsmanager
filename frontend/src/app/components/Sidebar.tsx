@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAccount } from "./AccountContext";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: "⬛" },
@@ -13,6 +14,8 @@ const nav = [
 
 export function Sidebar() {
   const path = usePathname();
+  const { accounts, selectedAccountId, setSelectedAccountId, loading: accountsLoading } = useAccount();
+
   return (
     <aside style={{
       width: 220,
@@ -40,6 +43,38 @@ export function Sidebar() {
           </div>
         </div>
       </div>
+
+      {/* Account selector */}
+      {accounts.length > 0 && (
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Reklam Hesabi
+          </div>
+          <select
+            value={selectedAccountId || ""}
+            onChange={(e) => setSelectedAccountId(e.target.value || null)}
+            style={{
+              width: "100%",
+              background: "var(--bg-primary)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
+              padding: "7px 8px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontFamily: "'DM Sans', sans-serif",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            <option value="">Varsayilan hesap</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name || acc.id} {acc.currency ? `(${acc.currency})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Nav */}
       <nav style={{ padding: "16px 12px", flex: 1 }}>

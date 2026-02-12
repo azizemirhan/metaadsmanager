@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import { api, Campaign } from "./lib/api";
 import { MetricCard } from "./components/MetricCard";
+import { useAccount } from "./components/AccountContext";
 
 const COLORS = ["#1877F2", "#42A5F5", "#00d68f", "#ffd32a", "#8b5cf6", "#ff4757"];
 
@@ -28,20 +29,21 @@ const STATUS_LABELS: Record<string, string> = {
 export default function DashboardPage() {
   const [days, setDays] = useState(30);
   const [exportLoading, setExportLoading] = useState(false);
+  const { selectedAccountId } = useAccount();
 
   const { data: summaryData, isLoading: summaryLoading, isError: summaryError, error: summaryErr } = useQuery({
-    queryKey: ["summary", days],
-    queryFn: () => api.getSummary(days),
+    queryKey: ["summary", days, selectedAccountId],
+    queryFn: () => api.getSummary(days, selectedAccountId),
   });
 
   const { data: campaignsData, isLoading: campaignsLoading, isError: campaignsError, error: campaignsErr } = useQuery({
-    queryKey: ["campaigns", days],
-    queryFn: () => api.getCampaigns(days),
+    queryKey: ["campaigns", days, selectedAccountId],
+    queryFn: () => api.getCampaigns(days, selectedAccountId),
   });
 
   const { data: dailyData, isLoading: dailyLoading, isError: dailyError } = useQuery({
-    queryKey: ["daily", days],
-    queryFn: () => api.getDaily(days),
+    queryKey: ["daily", days, selectedAccountId],
+    queryFn: () => api.getDaily(days, selectedAccountId),
   });
 
   const campaigns = campaignsData?.data || [];
