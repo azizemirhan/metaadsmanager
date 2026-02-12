@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #0f1629;
+  --bg-card: #131c2e;
+  --bg-card-hover: #192237;
+  --border: #1e2d4a;
+  --border-bright: #2a4070;
+  --meta-blue: #1877F2;
+  --meta-blue-light: #42A5F5;
+  --meta-green: #00d68f;
+  --meta-red: #ff4757;
+  --meta-yellow: #ffd32a;
+  --meta-purple: #8b5cf6;
+  --text-primary: #e8edf5;
+  --text-secondary: #7a8ba8;
+  --text-muted: #4a5a72;
+  --glow-blue: 0 0 30px rgba(24, 119, 242, 0.15);
+  --glow-green: 0 0 20px rgba(0, 214, 143, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--meta-blue); }
+
+/* Card */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+  border-color: var(--border-bright);
+  box-shadow: var(--glow-blue);
+}
+
+/* Metric card badge */
+.badge-up { color: var(--meta-green); background: rgba(0,214,143,0.08); border: 1px solid rgba(0,214,143,0.15); }
+.badge-down { color: var(--meta-red); background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.15); }
+.badge-neutral { color: var(--text-secondary); background: rgba(122,139,168,0.08); border: 1px solid rgba(122,139,168,0.15); }
+
+/* Glow button */
+.btn-primary {
+  background: var(--meta-blue);
+  color: white;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+.btn-primary:hover {
+  background: #2186ff;
+  box-shadow: 0 4px 20px rgba(24,119,242,0.4);
+  transform: translateY(-1px);
+}
+.btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+.btn-outline:hover {
+  border-color: var(--meta-blue);
+  color: var(--meta-blue);
+}
+
+/* Status indicator */
+.status-active { color: var(--meta-green); }
+.status-paused { color: var(--meta-yellow); }
+.status-inactive { color: var(--text-muted); }
+
+/* Mono font for numbers */
+.mono { font-family: 'Space Mono', monospace; }
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* AI Analysis box */
+.ai-box {
+  background: linear-gradient(135deg, rgba(24,119,242,0.05), rgba(139,92,246,0.05));
+  border: 1px solid rgba(24,119,242,0.2);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.ai-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--meta-blue), var(--meta-purple));
+}
+
+/* Table */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(30,45,74,0.5);
+  color: var(--text-secondary);
+}
+.data-table tr:hover td {
+  background: rgba(24,119,242,0.03);
+  color: var(--text-primary);
+}
+.data-table tr:last-child td { border-bottom: none; }
