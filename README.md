@@ -32,6 +32,15 @@ cp .env.example backend/.env
 
 Ardından `backend/.env` dosyasını açıp aşağıdaki bilgileri doldurun (nasıl alınacağı bir sonraki bölümde).
 
+#### Ortam Değişkenleri
+
+| Değişken | Açıklama | Varsayılan |
+|----------|----------|------------|
+| `ENVIRONMENT` | Çalışma ortamı: `development` veya `production` | `development` |
+| `CORS_ORIGINS` | Virgülle ayrılmış izinli frontend URL'leri | `http://localhost:3000,...` |
+
+> 💡 **Production Notu:** `ENVIRONMENT=production` ayarlandığında API hata cevaplarında detay gizlenir, sadece sunucu loglarında görünür.
+
 ### 3a. Docker ile Başlatın (Önerilen)
 
 ```bash
