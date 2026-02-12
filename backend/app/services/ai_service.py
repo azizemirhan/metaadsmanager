@@ -1,4 +1,5 @@
 import anthropic
+import asyncio
 import os
 import json
 from dotenv import load_dotenv
@@ -46,7 +47,8 @@ async def analyze_campaigns(campaigns_data: list[dict]) -> str:
             "conversions": c.get("conversions", 0),
         })
 
-    message = client.messages.create(
+    message = await asyncio.to_thread(
+        client.messages.create,
         model="claude-opus-4-5-20251101",
         max_tokens=2000,
         system=SYSTEM_PROMPT,
@@ -61,13 +63,14 @@ Toplam {len(campaigns_data)} kampanya var. Lütfen kapsamlı bir analiz yap."""
             }
         ]
     )
-    
+
     return message.content[0].text
 
 
 async def analyze_single_campaign(campaign: dict) -> str:
     """Tek kampanyayı derinlemesine analiz et"""
-    message = client.messages.create(
+    message = await asyncio.to_thread(
+        client.messages.create,
         model="claude-opus-4-5-20251101",
         max_tokens=1500,
         system=SYSTEM_PROMPT,
@@ -93,13 +96,14 @@ Bu kampanya için özel optimizasyon önerileri ver."""
             }
         ]
     )
-    
+
     return message.content[0].text
 
 
 async def generate_weekly_report_text(data: dict) -> str:
     """Haftalık e-posta raporu için metin oluştur"""
-    message = client.messages.create(
+    message = await asyncio.to_thread(
+        client.messages.create,
         model="claude-opus-4-5-20251101",
         max_tokens=1500,
         system="Sen bir Meta Ads raporlama uzmanısın. Haftalık performans raporlarını profesyonel ve anlaşılır şekilde özetliyorsun.",
@@ -120,5 +124,5 @@ HTML formatında yaz (e-posta için)."""
             }
         ]
     )
-    
+
     return message.content[0].text
