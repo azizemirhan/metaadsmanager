@@ -50,6 +50,18 @@ export const api = {
     URL.revokeObjectURL(url);
   },
 
+  exportHtml: async (reportType = "weekly_summary", days = 30) => {
+    const res = await fetch(`${API_BASE}/api/reports/export/html?report_type=${reportType}&days=${days}`);
+    if (!res.ok) throw new Error("HTML export hatası");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `meta_ads_${reportType}_${new Date().toISOString().slice(0, 10)}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
   // Email
   sendReport: (toEmail: string, periodDays = 7, includeCsv = true) =>
     apiFetch<{ message: string }>("/api/email/send-report", {
