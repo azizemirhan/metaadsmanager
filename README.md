@@ -4,14 +4,19 @@
 
 ---
 
-## ✨ Özellikler
+## Ozellikler
 
-- 📈 **Canlı Dashboard** — Kampanya, gösterim, tıklama, CTR, CPC, CPM, ROAS metrikleri
-- 📊 **İnteraktif Grafikler** — Günlük trend, harcama dağılımı, kampanya karşılaştırması
-- 🤖 **AI Analiz (Claude)** — Otomatik kampanya değerlendirmesi ve somut öneriler
-- ⬇️ **CSV Export** — Kampanya, reklam seti ve reklam verilerini indirin
-- 📧 **E-posta Raporlama** — Haftalık AI raporu otomatik e-posta ile gönderim
-- 🔍 **Kampanya Yönetimi** — Filtreleme, sıralama, durum takibi
+- **Canli Dashboard** — Kampanya, gosterim, tiklama, CTR, CPC, CPM, ROAS metrikleri
+- **Interaktif Grafikler** — Gunluk trend, harcama dagilimi, kampanya karsilastirmasi
+- **Gelismis Analitik** — Metrik secici, kampanya karsilastirma grafigi, coklu trend goruntuleme
+- **AI Analiz (Claude/Gemini)** — Otomatik kampanya degerlendirmesi ve somut oneriler
+- **Rapor Turleri** — Haftalik ozet, kampanya karsilastirma, performans trendi (HTML/CSV)
+- **E-posta Raporlama** — AI raporu + CSV eki ile otomatik e-posta gonderim
+- **Kampanya Yonetimi** — Filtreleme, siralama, durum takibi
+- **Coklu Hesap Destegi** — Birden fazla Meta reklam hesabi arasinda gecis
+- **Kalici Ayarlar** — API anahtarlari ve yapilandirma backend'de saklanir
+- **Rate Limiting** — IP bazli istek sinirlamasi (varsayilan: 60 istek/dakika)
+- **Health Check** — `/health` endpoint'i ile izleme destegi
 
 ---
 
@@ -32,14 +37,16 @@ cp .env.example backend/.env
 
 Ardından `backend/.env` dosyasını açıp aşağıdaki bilgileri doldurun (nasıl alınacağı bir sonraki bölümde).
 
-#### Ortam Değişkenleri
+#### Ortam Degiskenleri
 
-| Değişken | Açıklama | Varsayılan |
+| Degisken | Aciklama | Varsayilan |
 |----------|----------|------------|
-| `ENVIRONMENT` | Çalışma ortamı: `development` veya `production` | `development` |
-| `CORS_ORIGINS` | Virgülle ayrılmış izinli frontend URL'leri | `http://localhost:3000,...` |
+| `ENVIRONMENT` | `development` veya `production` | `development` |
+| `CORS_ORIGINS` | Virgul ile ayrilmis izinli frontend URL'leri | `http://localhost:3000,...` |
+| `RATE_LIMIT_REQUESTS` | Pencere basina max istek sayisi | `60` |
+| `RATE_LIMIT_WINDOW` | Rate limit pencere suresi (saniye) | `60` |
 
-> 💡 **Production Notu:** `ENVIRONMENT=production` ayarlandığında API hata cevaplarında detay gizlenir, sadece sunucu loglarında görünür.
+> **Production Notu:** `ENVIRONMENT=production` ayarlandiginda API hata cevaplarinda detay gizlenir, sadece sunucu loglarinda gorunur.
 
 ### 3a. Docker ile Başlatın (Önerilen)
 
@@ -196,29 +203,71 @@ meta-ads-dashboard/
 
 ---
 
-## 📊 API Endpoint'leri
+## API Endpoint'leri
 
-| Endpoint | Açıklama |
+| Endpoint | Aciklama |
 |----------|----------|
-| `GET /api/campaigns` | Tüm kampanyalar + metrikler |
-| `GET /api/campaigns/summary` | Hesap özeti |
-| `GET /api/campaigns/daily` | Günlük breakdown |
-| `GET /api/reports/export/csv` | CSV export |
-| `GET /api/ai/analyze` | Tüm kampanya AI analizi |
+| `GET /api/campaigns` | Tum kampanyalar + metrikler (`?ad_account_id=` destekli) |
+| `GET /api/campaigns/summary` | Hesap ozeti (`?ad_account_id=` destekli) |
+| `GET /api/campaigns/daily` | Gunluk breakdown (`?ad_account_id=` destekli) |
+| `GET /api/campaigns/accounts` | Erisilen reklam hesaplarini listele |
+| `GET /api/reports/export/csv` | CSV export (campaigns/ads/adsets/daily) |
+| `GET /api/reports/export/html` | HTML rapor export (weekly_summary/campaign_comparison/performance_trend) |
+| `GET /api/ai/analyze` | Tum kampanya AI analizi |
 | `GET /api/ai/analyze/{id}` | Tek kampanya analizi |
-| `POST /api/email/send-report` | E-posta raporu gönder |
+| `POST /api/email/send-report` | E-posta raporu gonder |
+| `GET /api/settings` | Mevcut ayarlar (hassas degerler maskeli) |
+| `PUT /api/settings` | Ayarlari guncelle ve kaydet |
+| `GET /health` | Health check (izleme/load balancer icin) |
 
 ---
 
-## 🛡️ Güvenlik Notları
+## Production Checklist
 
-- `.env` dosyasını asla git'e pushlamamın — `.gitignore`'a ekleyin
-- Production'da uzun süreli System User Token kullanın
-- API rate limit: Meta 200 req/saat, aşmamaya dikkat edin
+Production ortamina deploy etmeden once:
+
+1. **Ortam degiskenleri:**
+   ```env
+   ENVIRONMENT=production
+   CORS_ORIGINS=https://your-domain.com
+   RATE_LIMIT_REQUESTS=60
+   RATE_LIMIT_WINDOW=60
+   ```
+
+2. **Meta API token:**
+   - Graph API Explorer token'i yerine **System User Token** kullanin (Business Manager -> System Users)
+   - System User token'lari suresi dolmaz
+
+3. **HTTPS:**
+   - Frontend ve backend'i HTTPS uzerinden sunun
+   - Reverse proxy (nginx/caddy) ile SSL terminate edin
+
+4. **Ayarlar dosyasi:**
+   - `backend/settings.json` dosyasi hassas bilgi icerir, guvenli tutun
+   - Alternatif: sadece `.env` dosyasi kullanin, settings UI'yi devre disi birakin
+
+5. **Health check:**
+   - `/health` endpoint'ini load balancer veya uptime izleme araci ile kullanin
+
+6. **Rate limiting:**
+   - Varsayilan: IP basina 60 istek/dakika
+   - `RATE_LIMIT_REQUESTS` ve `RATE_LIMIT_WINDOW` ile ayarlanabilir
+
+7. **Loglama:**
+   - Production'da hata detaylari loglanir ama API yaniti gizli tutulur
+   - Uvicorn'u `--log-level warning` ile calistirin
 
 ---
 
-## 📝 Lisans
+## Guvenlik Notlari
+
+- `.env` ve `settings.json` dosyalarini asla git'e pushlamayin (`.gitignore`'da zaten var)
+- Production'da uzun sureli System User Token kullanin
+- Meta API rate limit: 200 req/saat, asmamaya dikkat edin
+- Hassas ayarlar API yanitinda maskelenir (son 4 karakter gosterilir)
+
+---
+
+## Lisans
 
 MIT
-# metaadsmanager
