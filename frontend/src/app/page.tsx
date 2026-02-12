@@ -10,13 +10,15 @@ import { MetricCard } from "./components/MetricCard";
 
 const COLORS = ["#1877F2", "#42A5F5", "#00d68f", "#ffd32a", "#8b5cf6", "#ff4757"];
 
-function formatCurrency(v: number) {
-  return `₺${v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatCurrency(v: unknown) {
+  const n = Number(v ?? 0);
+  return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
-function formatNum(v: number) {
-  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
-  return v.toString();
+function formatNum(v: unknown) {
+  const n = Number(v ?? 0);
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toLocaleString("tr-TR");
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -27,17 +29,17 @@ export default function DashboardPage() {
   const [days, setDays] = useState(30);
   const [exportLoading, setExportLoading] = useState(false);
 
-  const { data: summaryData, isLoading: summaryLoading } = useQuery({
+  const { data: summaryData, isLoading: summaryLoading, isError: summaryError, error: summaryErr } = useQuery({
     queryKey: ["summary", days],
     queryFn: () => api.getSummary(days),
   });
 
-  const { data: campaignsData, isLoading: campaignsLoading } = useQuery({
+  const { data: campaignsData, isLoading: campaignsLoading, isError: campaignsError, error: campaignsErr } = useQuery({
     queryKey: ["campaigns", days],
     queryFn: () => api.getCampaigns(days),
   });
 
-  const { data: dailyData, isLoading: dailyLoading } = useQuery({
+  const { data: dailyData, isLoading: dailyLoading, isError: dailyError } = useQuery({
     queryKey: ["daily", days],
     queryFn: () => api.getDaily(days),
   });
@@ -45,16 +47,18 @@ export default function DashboardPage() {
   const campaigns = campaignsData?.data || [];
   const summary = summaryData;
   const daily = dailyData?.data || [];
+  const apiError = summaryErr || campaignsErr;
+  const hasApiError = summaryError || campaignsError || dailyError;
 
   // Objective breakdown for pie
   const objectiveBreakdown = campaigns.reduce((acc: Record<string, number>, c: Campaign) => {
-    acc[c.objective || "Other"] = (acc[c.objective || "Other"] || 0) + (c.spend || 0);
+    acc[c.objective || "Other"] = (acc[c.objective || "Other"] || 0) + Number(c.spend ?? 0);
     return acc;
   }, {});
   const pieData = Object.entries(objectiveBreakdown).map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) }));
 
   // Top 5 campaigns by spend
-  const topCampaigns = [...campaigns].sort((a, b) => (b.spend || 0) - (a.spend || 0)).slice(0, 5);
+  const topCampaigns = [...campaigns].sort((a, b) => Number(b.spend ?? 0) - Number(a.spend ?? 0)).slice(0, 5);
 
   const handleExport = async () => {
     setExportLoading(true);
@@ -68,6 +72,43 @@ export default function DashboardPage() {
 
   return (
     <div style={{ maxWidth: 1400 }}>
+      {/* API hatası varsa uyarı kutusu */}
+      {hasApiError && (
+        <div style={{
+          marginBottom: 24,
+          padding: 20,
+          background: "rgba(255,71,87,0.1)",
+          border: "1px solid rgba(255,71,87,0.3)",
+          borderRadius: 12,
+          color: "var(--text-primary)",
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚠️ Meta API bağlantı hatası</div>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 8 }}>
+            {apiError?.message || "Veriler alınamadı. Backend ve .env ayarlarını kontrol edin."}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            Token süresi dolmuş olabilir (Graph API Explorer token’ları birkaç saat geçerlidir). Yeni token alıp <code style={{ background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4 }}>backend/.env</code> içindeki <code style={{ background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4 }}>META_ACCESS_TOKEN</code> değerini güncelleyin ve backend’i yeniden başlatın.
+          </div>
+        </div>
+      )}
+
+      {/* Veri yok ama hata da yok: hesapta bu dönemde kampanya/veri olmayabilir */}
+      {!hasApiError && !summaryLoading && !campaignsLoading && campaigns.length === 0 && Number(summary?.spend ?? 0) === 0 && (
+        <div style={{
+          marginBottom: 24,
+          padding: 20,
+          background: "rgba(255,211,42,0.08)",
+          border: "1px solid rgba(255,211,42,0.25)",
+          borderRadius: 12,
+          color: "var(--text-primary)",
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>📊 Bu dönemde veri yok</div>
+          <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+            Son {days} günde bu reklam hesabında kampanya veya harcama görünmüyor. Farklı bir periyot seçin veya Meta Ads Manager’da hesabın doğru ve aktif kampanyaları olduğundan emin olun.
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
         <div>
@@ -112,13 +153,13 @@ export default function DashboardPage() {
           ))
         ) : (
           <>
-            <MetricCard label="Toplam Harcama" value={formatCurrency(summary?.spend || 0)} icon="💸" color="var(--meta-blue)" />
-            <MetricCard label="Gösterim" value={formatNum(summary?.impressions || 0)} icon="👁️" color="var(--meta-purple)" />
-            <MetricCard label="Tıklama" value={formatNum(summary?.clicks || 0)} icon="🖱️" color="var(--meta-green)" />
-            <MetricCard label="Ort. CTR" value={`%${(summary?.ctr || 0).toFixed(2)}`} icon="📊"
-              color={(summary?.ctr || 0) >= 1 ? "var(--meta-green)" : "var(--meta-red)"}
-              trend={(summary?.ctr || 0) >= 1 ? "up" : "down"}
-              trendLabel={(summary?.ctr || 0) >= 1 ? "İyi" : "Düşük"} />
+            <MetricCard label="Toplam Harcama" value={formatCurrency(Number(summary?.spend ?? 0))} icon="💸" color="var(--meta-blue)" />
+            <MetricCard label="Gösterim" value={formatNum(Number(summary?.impressions ?? 0))} icon="👁️" color="var(--meta-purple)" />
+            <MetricCard label="Tıklama" value={formatNum(Number(summary?.clicks ?? 0))} icon="🖱️" color="var(--meta-green)" />
+            <MetricCard label="Ort. CTR" value={`%${Number(summary?.ctr ?? 0).toFixed(2)}`} icon="📊"
+              color={Number(summary?.ctr ?? 0) >= 1 ? "var(--meta-green)" : "var(--meta-red)"}
+              trend={Number(summary?.ctr ?? 0) >= 1 ? "up" : "down"}
+              trendLabel={Number(summary?.ctr ?? 0) >= 1 ? "İyi" : "Düşük"} />
           </>
         )}
       </div>
@@ -129,8 +170,8 @@ export default function DashboardPage() {
           Array(3).fill(0).map((_, i) => <div key={i} className="card" style={{ padding: 24, height: 100 }}><Skeleton h={60} /></div>)
         ) : (
           <>
-            <MetricCard label="Ort. CPC" value={formatCurrency(summary?.cpc || 0)} icon="💰" />
-            <MetricCard label="CPM" value={formatCurrency(summary?.cpm || 0)} icon="📱" />
+            <MetricCard label="Ort. CPC" value={formatCurrency(Number(summary?.cpc ?? 0))} icon="💰" />
+            <MetricCard label="CPM" value={formatCurrency(Number(summary?.cpm ?? 0))} icon="📱" />
             <MetricCard label="Aktif Kampanya" value={String(campaigns.filter(c => c.status === "ACTIVE").length)} icon="🟢" color="var(--meta-green)" />
           </>
         )}
@@ -236,12 +277,12 @@ export default function DashboardPage() {
                   </td>
                   <td className="mono" style={{ color: "var(--text-primary)" }}>{formatCurrency(c.spend)}</td>
                   <td className="mono">{formatNum(c.impressions)}</td>
-                  <td className="mono" style={{ color: c.ctr >= 1 ? "var(--meta-green)" : "var(--meta-red)" }}>
-                    %{c.ctr?.toFixed(2)}
+                  <td className="mono" style={{ color: Number(c.ctr ?? 0) >= 1 ? "var(--meta-green)" : "var(--meta-red)" }}>
+                    %{Number(c.ctr ?? 0).toFixed(2)}
                   </td>
                   <td className="mono">{formatCurrency(c.cpc)}</td>
-                  <td className="mono" style={{ color: c.roas >= 2 ? "var(--meta-green)" : c.roas >= 1 ? "var(--meta-yellow)" : "var(--meta-red)" }}>
-                    {c.roas?.toFixed(2)}x
+                  <td className="mono" style={{ color: Number(c.roas ?? 0) >= 2 ? "var(--meta-green)" : Number(c.roas ?? 0) >= 1 ? "var(--meta-yellow)" : "var(--meta-red)" }}>
+                    {Number(c.roas ?? 0).toFixed(2)}x
                   </td>
                 </tr>
               ))}

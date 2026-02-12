@@ -40,7 +40,16 @@ docker-compose up --build
 
 ### 3b. Manuel Kurulum
 
-**Backend:**
+**Backend (sanal ortam önerilir):**
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+Venv kullanmadan:
 ```bash
 cd backend
 pip install -r requirements.txt
@@ -56,7 +65,7 @@ npm run dev
 
 ### 4. Açın
 
-- Dashboard: http://localhost:3000
+- Dashboard: http://localhost:3000 (veya Next.js farklı port kullanıyorsa örn. http://localhost:3001)
 - API Docs: http://localhost:8000/docs
 
 ---
@@ -102,12 +111,31 @@ npm run dev
 
 ---
 
-## 🔑 Claude AI API Key
+## 🔑 AI Analiz: Claude veya Gemini
+
+Analiz için **Claude** (Anthropic) veya **Gemini** (Google) kullanabilirsiniz. `backend/.env` içinde birini ayarlayın.
+
+### Seçenek A — Gemini (önerilen, ücretsiz kota)
+
+1. https://aistudio.google.com/apikey adresine gidin
+2. Google hesabınızla giriş yapın
+3. **Create API Key** → key'i kopyalayın
+4. `backend/.env` dosyasına ekleyin:
+   ```
+   GEMINI_API_KEY=AIza...
+   AI_PROVIDER=gemini
+   ```
+   (Sadece `GEMINI_API_KEY` doluysa varsayılan zaten Gemini kullanılır.)
+
+### Seçenek B — Claude (Anthropic)
 
 1. https://console.anthropic.com adresine gidin
-2. Kayıt olun / giriş yapın
-3. **API Keys → Create Key** tıklayın
-4. Key'i kopyalayın → `.env` dosyasına ekleyin
+2. **API Keys → Create Key** tıklayın
+3. Key'i `backend/.env` dosyasına ekleyin:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...
+   AI_PROVIDER=claude
+   ```
 
 ---
 

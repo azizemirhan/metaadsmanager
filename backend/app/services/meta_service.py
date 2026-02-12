@@ -13,6 +13,25 @@ META_API_VERSION = "v21.0"
 META_BASE_URL = f"https://graph.facebook.com/{META_API_VERSION}"
 
 
+def _is_meta_configured() -> bool:
+    """Token ve hesap ID gerçek değer mi (placeholder değil mi) kontrol eder."""
+    token = (META_ACCESS_TOKEN or "").strip()
+    account = (META_AD_ACCOUNT_ID or "").strip()
+    if not token or not account:
+        return False
+    # Placeholder örnekleri
+    if "xxxxxxxx" in token or token == "EAA":
+        return False
+    if account == "act_123456789" or "123456789" in account:
+        return False
+    return True
+
+
+class MetaAPIError(Exception):
+    """Meta API hataları için (router'da 503 dönmek için kullanılır)."""
+    pass
+
+
 class MetaAdsService:
     def __init__(self):
         self.token = META_ACCESS_TOKEN
@@ -21,10 +40,28 @@ class MetaAdsService:
 
     async def _get(self, endpoint: str, params: dict = {}) -> dict:
         """Meta API'ye GET isteği gönderir"""
+        if not _is_meta_configured():
+            raise MetaAPIError(
+                "Meta API yapılandırılmamış. Lütfen backend/.env dosyasında "
+                "META_ACCESS_TOKEN ve META_AD_ACCOUNT_ID değerlerini gerçek Meta hesap bilgilerinizle doldurun."
+            )
         params["access_token"] = self.token
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(f"{self.base_url}/{endpoint}", params=params)
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                body = {}
+                try:
+                    body = response.json()
+                except Exception:
+                    pass
+                err = body.get("error") or {}
+                msg = err.get("message", str(e))
+                code = err.get("code", "")
+                import logging
+                logging.warning(f"Meta API hata: status={response.status_code} code={code} message={msg}")
+                raise MetaAPIError(f"Meta API hatası: {msg}")
             return response.json()
 
     def _date_range(self, days: int = 30) -> dict:
@@ -37,6 +74,8 @@ class MetaAdsService:
 
     async def get_campaigns(self, days: int = 30) -> list[dict]:
         """Tüm kampanyaları ve temel metriklerini getirir"""
+        if not _is_meta_configured():
+            return []
         data = await self._get(
             f"{self.account_id}/campaigns",
             params={
@@ -45,6 +84,9 @@ class MetaAdsService:
             }
         )
         campaigns = data.get("data", [])
+        if not campaigns:
+            import logging
+            logging.info(f"Meta API: Kampanya listesi boş (son {days} gün). Hesap: {self.account_id}")
 
         # Her kampanya için insights çek
         enriched = []
@@ -102,6 +144,8 @@ class MetaAdsService:
 
     async def get_ad_sets(self, campaign_id: Optional[str] = None, days: int = 30) -> list[dict]:
         """Reklam setlerini getirir"""
+        if not _is_meta_configured():
+            return []
         endpoint = f"{campaign_id}/adsets" if campaign_id else f"{self.account_id}/adsets"
         data = await self._get(
             endpoint,
@@ -113,6 +157,8 @@ class MetaAdsService:
 
     async def get_ads(self, campaign_id: Optional[str] = None, days: int = 30) -> list[dict]:
         """Reklamları getirir"""
+        if not _is_meta_configured():
+            return []
         endpoint = f"{campaign_id}/ads" if campaign_id else f"{self.account_id}/ads"
         data = await self._get(
             endpoint,
@@ -130,6 +176,8 @@ class MetaAdsService:
 
     async def get_daily_breakdown(self, days: int = 30) -> list[dict]:
         """Günlük performans breakdown"""
+        if not _is_meta_configured():
+            return []
         data = await self._get(
             f"{self.account_id}/insights",
             params={
@@ -142,6 +190,8 @@ class MetaAdsService:
 
     async def get_account_summary(self, days: int = 30) -> dict:
         """Hesap geneli özet"""
+        if not _is_meta_configured():
+            return {}
         data = await self._get(
             f"{self.account_id}/insights",
             params={

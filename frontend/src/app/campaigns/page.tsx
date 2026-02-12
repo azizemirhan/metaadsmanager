@@ -7,13 +7,15 @@ const STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Aktif", PAUSED: "Duraklatıldı", DELETED: "Silindi", ARCHIVED: "Arşivlendi"
 };
 
-function formatCurrency(v: number) {
-  return `₺${(v || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatCurrency(v: unknown) {
+  const n = Number(v ?? 0);
+  return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
-function formatNum(v: number) {
-  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
-  return (v || 0).toString();
+function formatNum(v: unknown) {
+  const n = Number(v ?? 0);
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toLocaleString("tr-TR");
 }
 
 export default function CampaignsPage() {
@@ -33,8 +35,8 @@ export default function CampaignsPage() {
     .filter(c => selectedStatus === "ALL" || c.status === selectedStatus)
     .filter(c => c.name?.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      const av = a[sortBy] as number || 0;
-      const bv = b[sortBy] as number || 0;
+      const av = Number(a[sortBy] ?? 0);
+      const bv = Number(b[sortBy] ?? 0);
       return sortDir === "desc" ? bv - av : av - bv;
     });
 
@@ -150,16 +152,16 @@ export default function CampaignsPage() {
                   <td className="mono" style={{ color: "var(--text-primary)" }}>{formatCurrency(c.spend)}</td>
                   <td className="mono">{formatNum(c.impressions)}</td>
                   <td className="mono">{formatNum(c.clicks)}</td>
-                  <td className="mono" style={{ color: c.ctr >= 1 ? "var(--meta-green)" : c.ctr >= 0.5 ? "var(--meta-yellow)" : "var(--meta-red)" }}>
-                    %{(c.ctr || 0).toFixed(2)}
+                  <td className="mono" style={{ color: Number(c.ctr ?? 0) >= 1 ? "var(--meta-green)" : Number(c.ctr ?? 0) >= 0.5 ? "var(--meta-yellow)" : "var(--meta-red)" }}>
+                    %{Number(c.ctr ?? 0).toFixed(2)}
                   </td>
                   <td className="mono">{formatCurrency(c.cpc)}</td>
                   <td className="mono">{formatCurrency(c.cpm)}</td>
-                  <td className="mono" style={{ color: c.roas >= 2 ? "var(--meta-green)" : c.roas >= 1 ? "var(--meta-yellow)" : "var(--meta-red)" }}>
-                    {(c.roas || 0).toFixed(2)}x
+                  <td className="mono" style={{ color: Number(c.roas ?? 0) >= 2 ? "var(--meta-green)" : Number(c.roas ?? 0) >= 1 ? "var(--meta-yellow)" : "var(--meta-red)" }}>
+                    {Number(c.roas ?? 0).toFixed(2)}x
                   </td>
-                  <td className="mono" style={{ color: c.frequency >= 3 ? "var(--meta-red)" : "var(--text-secondary)" }}>
-                    {(c.frequency || 0).toFixed(1)}
+                  <td className="mono" style={{ color: Number(c.frequency ?? 0) >= 3 ? "var(--meta-red)" : "var(--text-secondary)" }}>
+                    {Number(c.frequency ?? 0).toFixed(1)}
                   </td>
                   <td className="mono">{formatNum(c.conversions)}</td>
                 </tr>

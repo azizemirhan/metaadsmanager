@@ -1,11 +1,14 @@
-import anthropic
 import os
 import json
+import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+# Sağlayıcı seçimi: AI_PROVIDER=gemini | claude (yoksa GEMINI_API_KEY varsa gemini, yoksa claude)
+AI_PROVIDER = os.getenv("AI_PROVIDER", "").lower().strip() or (
+    "gemini" if os.getenv("GEMINI_API_KEY") else "claude"
+)
 
 SYSTEM_PROMPT = """Sen bir Meta Ads (Facebook & Instagram Reklam) uzmanısın. 
 Reklam verilerini analiz edip Türkçe olarak somut, uygulanabilir öneriler veriyorsun.
@@ -25,12 +28,13 @@ Her analizde şu formatta yanıt ver:
 5. 💰 BÜTÇE TAVSİYESİ"""
 
 
-async def analyze_campaigns(campaigns_data: list[dict]) -> str:
-    """Kampanya verilerini AI ile analiz et"""
-    
-    # Veriyi özetle (token tasarrufu için)
+# --- Gemini ---
+def _gemini_analyze_campaigns(campaigns_data: list[dict]) -> str:
+    import google.generativeai as genai
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
     summary = []
-    for c in campaigns_data[:20]:  # Max 20 kampanya analiz et
+    for c in campaigns_data[:20]:
         summary.append({
             "name": c.get("name", ""),
             "status": c.get("status", ""),
@@ -45,36 +49,24 @@ async def analyze_campaigns(campaigns_data: list[dict]) -> str:
             "frequency": c.get("frequency", 0),
             "conversions": c.get("conversions", 0),
         })
+    prompt = f"""{SYSTEM_PROMPT}
 
-    message = client.messages.create(
-        model="claude-opus-4-5-20251101",
-        max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"""Aşağıdaki Meta Ads kampanya verilerini analiz et ve detaylı öneriler ver:
+Aşağıdaki Meta Ads kampanya verilerini analiz et ve detaylı öneriler ver (Türkçe):
 
 {json.dumps(summary, ensure_ascii=False, indent=2)}
 
 Toplam {len(campaigns_data)} kampanya var. Lütfen kapsamlı bir analiz yap."""
-            }
-        ]
-    )
-    
-    return message.content[0].text
+    response = model.generate_content(prompt)
+    return response.text
 
 
-async def analyze_single_campaign(campaign: dict) -> str:
-    """Tek kampanyayı derinlemesine analiz et"""
-    message = client.messages.create(
-        model="claude-opus-4-5-20251101",
-        max_tokens=1500,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"""Bu kampanyayı derinlemesine analiz et:
+def _gemini_analyze_single(campaign: dict) -> str:
+    import google.generativeai as genai
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    prompt = f"""{SYSTEM_PROMPT}
+
+Bu kampanyayı derinlemesine analiz et (Türkçe):
 
 Kampanya Adı: {campaign.get('name')}
 Durum: {campaign.get('status')}
@@ -90,23 +82,17 @@ Frequency: {campaign.get('frequency', 0):.1f}
 Dönüşüm: {campaign.get('conversions', 0)}
 
 Bu kampanya için özel optimizasyon önerileri ver."""
-            }
-        ]
-    )
-    
-    return message.content[0].text
+    response = model.generate_content(prompt)
+    return response.text
 
 
-async def generate_weekly_report_text(data: dict) -> str:
-    """Haftalık e-posta raporu için metin oluştur"""
-    message = client.messages.create(
-        model="claude-opus-4-5-20251101",
-        max_tokens=1500,
-        system="Sen bir Meta Ads raporlama uzmanısın. Haftalık performans raporlarını profesyonel ve anlaşılır şekilde özetliyorsun.",
-        messages=[
-            {
-                "role": "user",
-                "content": f"""Bu haftalık verilere göre yöneticiye göndermek için kısa ve öz bir rapor yaz:
+def _gemini_weekly_report(data: dict) -> str:
+    import google.generativeai as genai
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    prompt = f"""Sen bir Meta Ads raporlama uzmanısın. Haftalık performans raporlarını profesyonel ve anlaşılır şekilde özetliyorsun (Türkçe).
+
+Bu haftalık verilere göre yöneticiye göndermek için kısa ve öz bir rapor yaz:
 
 {json.dumps(data, ensure_ascii=False, indent=2)}
 
@@ -117,8 +103,86 @@ Rapor şunları içermeli:
 - Önümüzdeki hafta için 2-3 öneri
 
 HTML formatında yaz (e-posta için)."""
-            }
-        ]
+    response = model.generate_content(prompt)
+    return response.text
+
+
+# --- Claude ---
+def _claude_analyze_campaigns(campaigns_data: list[dict]) -> str:
+    import anthropic
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    summary = []
+    for c in campaigns_data[:20]:
+        summary.append({
+            "name": c.get("name", ""),
+            "status": c.get("status", ""),
+            "objective": c.get("objective", ""),
+            "spend": c.get("spend", 0),
+            "impressions": c.get("impressions", 0),
+            "clicks": c.get("clicks", 0),
+            "ctr": c.get("ctr", 0),
+            "cpc": c.get("cpc", 0),
+            "cpm": c.get("cpm", 0),
+            "roas": c.get("roas", 0),
+            "frequency": c.get("frequency", 0),
+            "conversions": c.get("conversions", 0),
+        })
+    message = client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=2000,
+        system=SYSTEM_PROMPT,
+        messages=[{
+            "role": "user",
+            "content": f"""Aşağıdaki Meta Ads kampanya verilerini analiz et ve detaylı öneriler ver:\n\n{json.dumps(summary, ensure_ascii=False, indent=2)}\n\nToplam {len(campaigns_data)} kampanya var. Lütfen kapsamlı bir analiz yap."""
+        }]
     )
-    
     return message.content[0].text
+
+
+def _claude_analyze_single(campaign: dict) -> str:
+    import anthropic
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    message = client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=1500,
+        system=SYSTEM_PROMPT,
+        messages=[{
+            "role": "user",
+            "content": f"""Bu kampanyayı derinlemesine analiz et:\n\nKampanya Adı: {campaign.get('name')}\nDurum: {campaign.get('status')}\nHedef: {campaign.get('objective')}\nHarcama: {campaign.get('spend', 0):.2f} TL\nGösterim: {campaign.get('impressions', 0):,}\nTıklama: {campaign.get('clicks', 0):,}\nCTR: %{campaign.get('ctr', 0):.2f}\nCPC: {campaign.get('cpc', 0):.2f} TL\nCPM: {campaign.get('cpm', 0):.2f} TL\nROAS: {campaign.get('roas', 0):.2f}x\nFrequency: {campaign.get('frequency', 0):.1f}\nDönüşüm: {campaign.get('conversions', 0)}\n\nBu kampanya için özel optimizasyon önerileri ver."""
+        }]
+    )
+    return message.content[0].text
+
+
+def _claude_weekly_report(data: dict) -> str:
+    import anthropic
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    message = client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=1500,
+        system="Sen bir Meta Ads raporlama uzmanısın. Haftalık performans raporlarını profesyonel ve anlaşılır şekilde özetliyorsun.",
+        messages=[{
+            "role": "user",
+            "content": f"""Bu haftalık verilere göre yöneticiye göndermek için kısa ve öz bir rapor yaz:\n\n{json.dumps(data, ensure_ascii=False, indent=2)}\n\nRapor: haftalık özet, en iyi kampanya, dikkat alanı, 2-3 öneri. HTML formatında (e-posta için)."""
+        }]
+    )
+    return message.content[0].text
+
+
+# --- Ortak async arayüz (thread ile bloklamayı önler) ---
+async def analyze_campaigns(campaigns_data: list[dict]) -> str:
+    if AI_PROVIDER == "gemini":
+        return await asyncio.to_thread(_gemini_analyze_campaigns, campaigns_data)
+    return await asyncio.to_thread(_claude_analyze_campaigns, campaigns_data)
+
+
+async def analyze_single_campaign(campaign: dict) -> str:
+    if AI_PROVIDER == "gemini":
+        return await asyncio.to_thread(_gemini_analyze_single, campaign)
+    return await asyncio.to_thread(_claude_analyze_single, campaign)
+
+
+async def generate_weekly_report_text(data: dict) -> str:
+    if AI_PROVIDER == "gemini":
+        return await asyncio.to_thread(_gemini_weekly_report, data)
+    return await asyncio.to_thread(_claude_weekly_report, data)
