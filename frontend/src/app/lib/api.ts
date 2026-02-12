@@ -68,6 +68,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ to_email: toEmail, period_days: periodDays, include_csv: includeCsv }),
     }),
+
+  // Settings
+  getSettings: () =>
+    apiFetch<SettingsResponse>("/api/settings"),
+
+  updateSettings: (data: SettingsUpdate) =>
+    apiFetch<{ message: string; updated: string[] }>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 };
 
 // Types
@@ -119,3 +129,13 @@ export interface Ad {
   cpc: number;
   roas: number;
 }
+
+export interface SettingsField {
+  configured: boolean;
+  value?: string;
+  masked?: string;
+}
+
+export type SettingsResponse = Record<string, SettingsField>;
+
+export type SettingsUpdate = Partial<Record<string, string>>;

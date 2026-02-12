@@ -3,8 +3,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException
-from app.routers import campaigns, reports, ai_analysis, email_reports
+from app.routers import campaigns, reports, ai_analysis, email_reports, settings
+from app.routers.settings import load_settings_into_env
 from app import config
+
+# Load saved settings into env before services initialize
+load_settings_into_env()
 
 # Logger ayarı
 logger = logging.getLogger(__name__)
@@ -50,6 +54,7 @@ app.include_router(campaigns.router, prefix="/api/campaigns", tags=["Campaigns"]
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(ai_analysis.router, prefix="/api/ai", tags=["AI Analysis"])
 app.include_router(email_reports.router, prefix="/api/email", tags=["Email Reports"])
+app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
 
 @app.get("/")
 async def root():
