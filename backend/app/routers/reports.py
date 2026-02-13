@@ -1,10 +1,360 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from fastapi.responses import StreamingResponse, HTMLResponse
 from datetime import datetime
+import asyncio
 import io
-from app.services.meta_service import meta_service
+import uuid
+import zipfile
+from typing import Optional, List
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db_session_optional
+from app.services.meta_service import meta_service, MetaAPIError
+from app.report_templates import (
+    REPORT_TEMPLATES,
+    get_report_data_for_template,
+    get_template_csv_columns,
+)
+from app.saved_reports import (
+    load_saved_reports,
+    save_saved_reports,
+    get_saved_report_by_id,
+    get_saved_report_by_id_optional,
+    load_saved_reports_db,
+    create_saved_report_db,
+    delete_saved_report_db,
+)
+from app.report_storage import write_csv_to_disk, save_csv_record
 
 router = APIRouter()
+
+
+@router.get("/templates")
+async def get_report_templates():
+    """15 hazır rapor şablonu listesi."""
+    return {"data": REPORT_TEMPLATES, "count": len(REPORT_TEMPLATES)}
+
+
+@router.get("/export/template/{template_id}")
+async def export_template_csv(
+    template_id: str,
+    days: int = Query(30, ge=1, le=365),
+    ad_account_id: Optional[str] = Query(None),
+):
+    """Seçilen şablon ve tarih aralığına göre CSV indir."""
+    if not any(t["id"] == template_id for t in REPORT_TEMPLATES):
+        raise HTTPException(status_code=404, detail="Şablon bulunamadı.")
+    try:
+        rows = await get_report_data_for_template(
+            template_id, days, ad_account_id, meta_service
+        )
+        columns = get_template_csv_columns(template_id)
+        if columns:
+            rows = [{k: r.get(k, "") for k in columns} for r in rows]
+        csv_content = meta_service.to_csv(rows)
+        title_slug = next((t["id"] for t in REPORT_TEMPLATES if t["id"] == template_id), template_id)
+        filename = f"rapor_{title_slug}_{datetime.now().strftime('%Y%m%d')}.csv"
+        return StreamingResponse(
+            io.StringIO(csv_content),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except MetaAPIError as e:
+        raise HTTPException(status_code=503, detail=str(e.args[0]) if e.args else "Meta API hatası.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/export/templates")
+async def export_templates_zip(
+    template_ids: str = Query(..., description="Virgülle ayrılmış şablon id'leri"),
+    days: int = Query(30, ge=1, le=365),
+    ad_account_id: Optional[str] = Query(None),
+):
+    """Birden fazla şablonu tek ZIP içinde CSV olarak indir (her şablon ayrı dosya)."""
+    ids = [tid.strip() for tid in template_ids.split(",") if tid.strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="En az bir şablon id gerekli.")
+    valid = [tid for tid in ids if any(t["id"] == tid for t in REPORT_TEMPLATES)]
+    if len(valid) != len(ids):
+        raise HTTPException(status_code=400, detail="Geçersiz şablon id.")
+    try:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for tid in valid:
+                rows = await get_report_data_for_template(
+                    tid, days, ad_account_id, meta_service
+                )
+                columns = get_template_csv_columns(tid)
+                if columns:
+                    rows = [{k: r.get(k, "") for k in columns} for r in rows]
+                csv_content = meta_service.to_csv(rows)
+                title_slug = next((t["id"] for t in REPORT_TEMPLATES if t["id"] == tid), tid)
+                zf.writestr(f"rapor_{title_slug}_{datetime.now().strftime('%Y%m%d')}.csv", csv_content.encode("utf-8"))
+        buf.seek(0)
+        filename = f"raporlar_{datetime.now().strftime('%Y%m%d')}.zip"
+        return StreamingResponse(
+            buf,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except MetaAPIError as e:
+        raise HTTPException(status_code=503, detail=str(e.args[0]) if e.args else "Meta API hatası.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Kayıtlı raporlar (Hazır Rapor) ---
+class SavedReportCreateBody(BaseModel):
+    name: str
+    template_id: Optional[str] = None
+    template_ids: Optional[List[str]] = None
+    days: int = 30
+    ad_account_id: Optional[str] = None
+
+
+def _resolve_template_ids(body: SavedReportCreateBody) -> List[str]:
+    """Body'den template_ids listesi üret (tek veya çoklu şablon)."""
+    if body.template_ids:
+        ids = [tid for tid in body.template_ids if tid]
+        if ids:
+            return ids
+    if body.template_id:
+        return [body.template_id]
+    return []
+
+
+@router.get("/saved")
+async def list_saved_reports(session: Optional[AsyncSession] = Depends(get_db_session_optional)):
+    """Kayıtlı hazır raporları listele (PostgreSQL veya JSON)."""
+    if session is not None:
+        reports = await load_saved_reports_db(session)
+    else:
+        reports = load_saved_reports()
+    return {"data": reports, "count": len(reports)}
+
+
+@router.post("/saved")
+async def create_saved_report(
+    body: SavedReportCreateBody,
+    session: Optional[AsyncSession] = Depends(get_db_session_optional),
+):
+    """Hazır rapor olarak kaydet (isim + bir veya birden fazla şablon + gün)."""
+    template_ids = _resolve_template_ids(body)
+    if not template_ids:
+        raise HTTPException(status_code=400, detail="En az bir şablon gerekli.")
+    for tid in template_ids:
+        if not any(t["id"] == tid for t in REPORT_TEMPLATES):
+            raise HTTPException(status_code=400, detail=f"Geçersiz şablon ID: {tid}")
+    new_id = str(uuid.uuid4())[:8]
+    if session is not None:
+        await create_saved_report_db(
+            session, new_id, body.name, template_ids, body.days, body.ad_account_id
+        )
+    else:
+        reports = load_saved_reports()
+        reports.append({
+            "id": new_id,
+            "name": body.name,
+            "template_ids": template_ids,
+            "days": body.days,
+            "ad_account_id": body.ad_account_id,
+            "created_at": datetime.now().isoformat(),
+        })
+        save_saved_reports(reports)
+    return {"success": True, "id": new_id, "message": "Rapor kaydedildi."}
+
+
+@router.get("/saved/{report_id}")
+async def get_saved_report(
+    report_id: str,
+    session: Optional[AsyncSession] = Depends(get_db_session_optional),
+):
+    """Kayıtlı rapor detayı."""
+    if session is not None:
+        r = await get_saved_report_by_id_optional(session, report_id)
+    else:
+        r = get_saved_report_by_id(report_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Rapor bulunamadı.")
+    return r
+
+
+def _get_report_template_ids(r: dict) -> List[str]:
+    """Kayıtlı rapor kaydından şablon id listesini al (eski template_id veya template_ids)."""
+    if r.get("template_ids"):
+        return r["template_ids"]
+    if r.get("template_id"):
+        return [r["template_id"]]
+    return []
+
+
+@router.get("/saved/{report_id}/data")
+async def get_saved_report_data(
+    report_id: str,
+    session: Optional[AsyncSession] = Depends(get_db_session_optional),
+):
+    """Kayıtlı raporun verisini JSON olarak döndürür (AI analizi için). Tek veya çoklu şablon destekler."""
+    r = await get_saved_report_by_id_optional(session, report_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Rapor bulunamadı.")
+    tids = _get_report_template_ids(r)
+    if not tids:
+        raise HTTPException(status_code=400, detail="Raporda şablon bilgisi yok.")
+    try:
+        days = r.get("days", 30)
+        account_id = r.get("ad_account_id")
+        templates_payload = []
+        for tid in tids:
+            rows = await get_report_data_for_template(tid, days, account_id, meta_service)
+            tpl = next((t for t in REPORT_TEMPLATES if t["id"] == tid), {})
+            columns = get_template_csv_columns(tid)
+            templates_payload.append({
+                "template_id": tid,
+                "template_title": tpl.get("title"),
+                "data": rows,
+                "columns": columns or [],
+            })
+        if len(templates_payload) == 1:
+            t0 = templates_payload[0]
+            return {
+                "report_id": report_id,
+                "name": r.get("name"),
+                "template_title": t0["template_title"],
+                "days": days,
+                "data": t0["data"],
+                "columns": t0["columns"],
+                "templates": templates_payload,
+            }
+        return {
+            "report_id": report_id,
+            "name": r.get("name"),
+            "days": days,
+            "templates": templates_payload,
+        }
+    except MetaAPIError as e:
+        raise HTTPException(status_code=503, detail=str(e.args[0]) if e.args else "Meta API hatası.")
+
+
+@router.get("/saved/{report_id}/export")
+async def export_saved_report_csv(
+    report_id: str,
+    session: Optional[AsyncSession] = Depends(get_db_session_optional),
+):
+    """Kayıtlı raporu CSV olarak indir. Çoklu şablonda ZIP. CSV yerel diske de yazılır."""
+    r = await get_saved_report_by_id_optional(session, report_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Rapor bulunamadı.")
+    tids = _get_report_template_ids(r)
+    if not tids:
+        raise HTTPException(status_code=400, detail="Raporda şablon bilgisi yok.")
+    days = r.get("days", 30)
+    account_id = r.get("ad_account_id")
+    report_name = r.get("name", "rapor")
+    safe_name = "".join(c if c.isalnum() or c in " -_" else "_" for c in report_name)
+    try:
+        if len(tids) == 1:
+            tid = tids[0]
+            rows = await get_report_data_for_template(tid, days, account_id, meta_service)
+            columns = get_template_csv_columns(tid)
+            if columns:
+                rows = [{k: row.get(k, "") for k in columns} for row in rows]
+            csv_content = meta_service.to_csv(rows)
+            full_path, file_name = write_csv_to_disk(report_id, tid, csv_content, report_name)
+            await save_csv_record(session, report_id, tid, full_path, file_name)
+            filename = f"{safe_name}_{datetime.now().strftime('%Y%m%d')}.csv"
+            return StreamingResponse(
+                io.StringIO(csv_content),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for tid in tids:
+                rows = await get_report_data_for_template(tid, days, account_id, meta_service)
+                columns = get_template_csv_columns(tid)
+                if columns:
+                    rows = [{k: row.get(k, "") for k in columns} for row in rows]
+                csv_content = meta_service.to_csv(rows)
+                tpl = next((t for t in REPORT_TEMPLATES if t["id"] == tid), {})
+                slug = tpl.get("id", tid)
+                zf.writestr(
+                    f"{safe_name}_{slug}_{datetime.now().strftime('%Y%m%d')}.csv",
+                    csv_content.encode("utf-8"),
+                )
+                full_path, file_name = write_csv_to_disk(report_id, tid, csv_content, report_name)
+                await save_csv_record(session, report_id, tid, full_path, file_name)
+        buf.seek(0)
+        filename = f"{safe_name}_{datetime.now().strftime('%Y%m%d')}.zip"
+        return StreamingResponse(
+            buf,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except MetaAPIError as e:
+        raise HTTPException(status_code=503, detail=str(e.args[0]) if e.args else "Meta API hatası.")
+
+
+@router.post("/saved/{report_id}/write-csv")
+async def write_saved_report_csv_to_disk(
+    report_id: str,
+    session: Optional[AsyncSession] = Depends(get_db_session_optional),
+):
+    """Kayıtlı raporun tüm şablonları için veriyi çekip CSV dosyalarını yerel diske yazar (backend/data/reports). İndirme yapmaz."""
+    r = await get_saved_report_by_id_optional(session, report_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Rapor bulunamadı.")
+    tids = _get_report_template_ids(r)
+    if not tids:
+        raise HTTPException(status_code=400, detail="Raporda şablon bilgisi yok.")
+    days = r.get("days", 30)
+    account_id = r.get("ad_account_id")
+    report_name = r.get("name", "rapor")
+    files_written: List[dict] = []
+    errors: List[str] = []
+    for i, tid in enumerate(tids):
+        if i > 0:
+            await asyncio.sleep(2)
+        try:
+            rows = await get_report_data_for_template(tid, days, account_id, meta_service)
+            columns = get_template_csv_columns(tid)
+            if columns:
+                rows = [{k: row.get(k, "") for k in columns} for row in rows]
+            csv_content = meta_service.to_csv(rows)
+            full_path, file_name = write_csv_to_disk(report_id, tid, csv_content, report_name)
+            await save_csv_record(session, report_id, tid, full_path, file_name)
+            files_written.append({"template_id": tid, "file_name": file_name, "path": str(full_path)})
+        except MetaAPIError as e:
+            err_msg = str(e.args[0]) if e.args else "Meta API hatası"
+            errors.append(f"{tid}: {err_msg}")
+        except Exception as e:
+            errors.append(f"{tid}: {e!s}")
+    return {
+        "success": True,
+        "written": len(files_written),
+        "files": files_written,
+        "errors": errors if errors else None,
+    }
+
+
+@router.delete("/saved/{report_id}")
+async def delete_saved_report(
+    report_id: str,
+    session: Optional[AsyncSession] = Depends(get_db_session_optional),
+):
+    """Kayıtlı raporu sil."""
+    if session is not None:
+        deleted = await delete_saved_report_db(session, report_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Rapor bulunamadı.")
+    else:
+        reports = load_saved_reports()
+        new_list = [x for x in reports if x.get("id") != report_id]
+        if len(new_list) == len(reports):
+            raise HTTPException(status_code=404, detail="Rapor bulunamadı.")
+        save_saved_reports(new_list)
+    return {"success": True, "message": "Rapor silindi."}
 
 
 @router.get("/export/csv")

@@ -161,6 +161,53 @@ Analiz için **Claude** (Anthropic) veya **Gemini** (Google) kullanabilirsiniz. 
 
 ---
 
+## 💬 WhatsApp Business API Kurulumu (Opsiyonel)
+
+Rapor ve uyarıları WhatsApp üzerinden göndermek için:
+
+### Adım 1: Meta Business Manager'da WhatsApp Ekleme
+
+1. https://business.facebook.com adresine gidin
+2. **Hesap Ayarları → WhatsApp Accounts** tıklayın
+3. **Add WhatsApp Account** ile yeni hesap oluşturun
+4. Telefon numaranızı doğrulayın (SMS veya arama ile)
+
+### Adım 2: WhatsApp Cloud API Erişimi
+
+1. Meta Developers → Uygulamanız → **Add Product**
+2. **WhatsApp** ürününü ekleyin
+3. **API Setup** sayfasında:
+   - Phone Number ID'yi kopyalayın → `WHATSAPP_PHONE_ID`
+   - Access Token oluşturun (veya mevcut META_ACCESS_TOKEN kullanın)
+
+### Adım 3: Gerekli İzinler
+
+Graph API Explorer veya token oluştururken şu izinleri ekleyin:
+- ✅ `whatsapp_business_management`
+- ✅ `whatsapp_business_messaging`
+
+### Adım 4: .env Ayarları
+
+```bash
+WHATSAPP_PHONE_ID=123456789012345
+WHATSAPP_ACCESS_TOKEN=EAA...        # Opsiyonel, boşsa META_ACCESS_TOKEN kullanılır
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=...   # Bot webhook için güvenli token
+```
+
+### Özellikler
+
+- **Rapor Gönderimi:** Raporlar ve AI Insights sayfalarından WhatsApp'a rapor gönderme
+- **Bot Komutları:** 
+  - "Bugün" → Günlük özet
+  - "7 gün" / "30 gün" → Haftalık/aylık rapor
+  - "Kampanyalar" → Aktif kampanya listesi
+  - "En iyi 5" → En çok harcama yapan kampanyalar
+- **Webhook:** `POST /api/whatsapp/webhook` endpoint'i gelen mesajları işler
+
+**Not:** WhatsApp Cloud API ilk başta "Sandbox" modda çalışır; sadece kayıtlı test numaralarına mesaj gönderebilirsiniz. Production kullanımı için Meta onayı gerekir.
+
+---
+
 ## 📁 Proje Yapısı
 
 ```
@@ -200,19 +247,37 @@ meta-ads-dashboard/
 
 | Endpoint | Açıklama |
 |----------|----------|
-| `GET /api/campaigns` | Tüm kampanyalar + metrikler |
+| `GET /api/campaigns` | Tüm kampanyalar + metrikler (`?ad_account_id=act_xxx` opsiyonel) |
+| `GET /api/campaigns/accounts` | Kullanılabilir reklam hesapları listesi |
 | `GET /api/campaigns/summary` | Hesap özeti |
 | `GET /api/campaigns/daily` | Günlük breakdown |
+| `GET /api/settings` | Kayıtlı ayarlar (hassas alanlar maskeli) |
+| `PUT /api/settings` | Ayarları kaydet |
 | `GET /api/reports/export/csv` | CSV export |
 | `GET /api/ai/analyze` | Tüm kampanya AI analizi |
 | `GET /api/ai/analyze/{id}` | Tek kampanya analizi |
 | `POST /api/email/send-report` | E-posta raporu gönder |
+| `POST /api/whatsapp/send-report` | WhatsApp'a rapor gönder |
+| `POST /api/whatsapp/send-daily-summary` | Günlük özet gönder |
+| `POST /api/whatsapp/send-alert` | Uyarı/alert mesajı gönder |
+| `GET/POST /api/whatsapp/webhook` | WhatsApp webhook (bot mesajları) |
+
+---
+
+## 🚀 Production Checklist
+
+- **ENVIRONMENT:** `ENVIRONMENT=production` ayarlayın; hata detayları kullanıcıya gitmez.
+- **CORS:** `CORS_ORIGINS=https://yourdomain.com` (virgülle birden fazla origin).
+- **Token:** Uzun süreli / System User token kullanın; Graph API Explorer token'ı kısa sürelidir.
+- **HTTPS:** API ve frontend'i HTTPS ile yayınlayın.
+- **Rate limit:** Production'da IP başına dakikada 120 istek sınırı uygulanır (429 döner).
+- **Ayarlar:** Panelden Ayarlar ile kaydedilen değerler `backend/settings.json` içinde saklanır; bu dosyayı git'e eklemeyin.
 
 ---
 
 ## 🛡️ Güvenlik Notları
 
-- `.env` dosyasını asla git'e pushlamamın — `.gitignore`'a ekleyin
+- `.env` ve `backend/settings.json` dosyalarını asla git'e pushlamayın — `.gitignore`'da olmalı
 - Production'da uzun süreli System User Token kullanın
 - API rate limit: Meta 200 req/saat, aşmamaya dikkat edin
 

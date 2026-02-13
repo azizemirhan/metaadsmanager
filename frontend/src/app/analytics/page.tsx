@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -6,8 +7,9 @@ import {
   Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 import { api, Campaign } from "../lib/api";
+import { useAccount } from "../components/Providers";
 
-/* ── Metric definitions ────────────────────────────────────── */
+/* Metric definitions */
 type MetricKey = "spend" | "clicks" | "ctr" | "cpc" | "cpm" | "roas";
 
 interface MetricDef {
@@ -15,13 +17,13 @@ interface MetricDef {
   label: string;
   color: string;
   format: (v: number) => string;
-  /** Available in daily breakdown data */
   dailyAvailable: boolean;
 }
 
 function formatCurrency(v: number) {
   return `₺${v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
 function formatNum(v: number) {
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
@@ -29,35 +31,35 @@ function formatNum(v: number) {
 }
 
 const METRICS: MetricDef[] = [
-  { key: "spend",  label: "Harcama", color: "#1877F2", format: formatCurrency,            dailyAvailable: true },
-  { key: "clicks", label: "Tıklama", color: "#00d68f", format: formatNum,                 dailyAvailable: true },
-  { key: "ctr",    label: "CTR",     color: "#ffd32a", format: (v) => `%${v.toFixed(2)}`, dailyAvailable: true },
-  { key: "cpc",    label: "CPC",     color: "#8b5cf6", format: formatCurrency,            dailyAvailable: false },
-  { key: "cpm",    label: "CPM",     color: "#ff4757", format: formatCurrency,            dailyAvailable: false },
-  { key: "roas",   label: "ROAS",    color: "#42A5F5", format: (v) => `${v.toFixed(2)}x`, dailyAvailable: false },
+  { key: "spend",  label: "Harcama", color: "#2563eb", format: formatCurrency, dailyAvailable: true },
+  { key: "clicks", label: "Tıklama", color: "#10b981", format: formatNum, dailyAvailable: true },
+  { key: "ctr",    label: "CTR",     color: "#f59e0b", format: (v) => `%${v.toFixed(2)}`, dailyAvailable: true },
+  { key: "cpc",    label: "CPC",     color: "#8b5cf6", format: formatCurrency, dailyAvailable: false },
+  { key: "cpm",    label: "CPM",     color: "#ec4899", format: formatCurrency, dailyAvailable: false },
+  { key: "roas",   label: "ROAS",    color: "#3b82f6", format: (v) => `${v.toFixed(2)}x`, dailyAvailable: false },
 ];
 
 const metricByKey = Object.fromEntries(METRICS.map((m) => [m.key, m])) as Record<MetricKey, MetricDef>;
 
-/* ── Page ──────────────────────────────────────────────────── */
 export default function AnalyticsPage() {
+  const { accountId } = useAccount();
   const [days, setDays] = useState(30);
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(["spend"]);
 
   /* API queries */
   const { data: summaryData, isLoading: summaryLoading } = useQuery({
-    queryKey: ["summary", days],
-    queryFn: () => api.getSummary(days),
+    queryKey: ["summary", days, accountId],
+    queryFn: () => api.getSummary(days, accountId),
   });
 
   const { data: dailyData, isLoading: dailyLoading } = useQuery({
-    queryKey: ["daily", days],
-    queryFn: () => api.getDaily(days),
+    queryKey: ["daily", days, accountId],
+    queryFn: () => api.getDaily(days, accountId),
   });
 
   const { data: campaignsData, isLoading: campaignsLoading } = useQuery({
-    queryKey: ["campaigns", days],
-    queryFn: () => api.getCampaigns(days),
+    queryKey: ["campaigns", days, accountId],
+    queryFn: () => api.getCampaigns(days, accountId),
   });
 
   const daily = dailyData?.data || [];
@@ -76,7 +78,7 @@ export default function AnalyticsPage() {
   const toggleMetric = (key: MetricKey) => {
     setSelectedMetrics((prev) => {
       if (prev.includes(key)) {
-        if (prev.length === 1) return prev; // at least one
+        if (prev.length === 1) return prev;
         return prev.filter((k) => k !== key);
       }
       return [...prev, key];
@@ -100,53 +102,45 @@ export default function AnalyticsPage() {
   );
 
   return (
-    <div style={{ maxWidth: 1200 }}>
-      {/* ── Header ──────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
-          Analitik
-        </h1>
-        <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
-          Gelismis karsilastirmali grafikler ve performans trendi
-        </p>
+    <div className="max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 mb-1">Analitik</h1>
+        <p className="text-slate-500 text-sm">Gelişmiş karşılaştırmalı grafikler ve performans trendi</p>
       </div>
 
-      {/* ── Period selector ─────────────────────────── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 24, alignItems: "center" }}>
-        <div style={{ display: "flex", gap: 4, background: "var(--bg-card)", borderRadius: 10, padding: 4, border: "1px solid var(--border)", width: "fit-content" }}>
+      {/* Period selector + Metric selector */}
+      <div className="flex flex-wrap items-center gap-4 mb-6">
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
           {[7, 14, 30, 90].map((d) => (
             <button
               key={d}
               onClick={() => setDays(d)}
-              style={{
-                padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
-                background: days === d ? "var(--meta-blue)" : "transparent",
-                color: days === d ? "white" : "var(--text-secondary)",
-                fontWeight: days === d ? 600 : 400,
-                fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
-              }}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                days === d 
+                  ? "bg-primary-600 text-white shadow-sm" 
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
             >
-              Son {d} gun
+              Son {d} gün
             </button>
           ))}
         </div>
 
-        {/* ── Metric selector (multi-select) ────────── */}
-        <div style={{ display: "flex", gap: 4, background: "var(--bg-card)", borderRadius: 10, padding: 4, border: "1px solid var(--border)", flexWrap: "wrap" }}>
+        {/* Metric selector */}
+        <div className="flex items-center gap-2 flex-wrap">
           {METRICS.map((m) => {
             const active = selectedMetrics.includes(m.key);
             return (
               <button
                 key={m.key}
                 onClick={() => toggleMetric(m.key)}
-                style={{
-                  padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer",
-                  background: active ? m.color : "transparent",
-                  color: active ? "#fff" : "var(--text-secondary)",
-                  fontWeight: active ? 600 : 400,
-                  fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
-                  opacity: active ? 1 : 0.7,
-                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  active 
+                    ? "text-white border-transparent shadow-sm" 
+                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+                style={{ backgroundColor: active ? m.color : undefined }}
               >
                 {m.label}
               </button>
@@ -155,36 +149,43 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* ── KPI Cards ───────────────────────────────── */}
+      {/* KPI Cards */}
       {summaryLoading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 24 }}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           {Array(5).fill(0).map((_, i) => (
-            <div key={i} className="card" style={{ padding: 20 }}><Skeleton h={12} w="60%" /><br /><Skeleton h={24} w="80%" /></div>
+            <div key={i} className="card p-5">
+              <Skeleton h={12} w="60%" className="mb-3" />
+              <Skeleton h={24} w="80%" />
+            </div>
           ))}
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 24 }}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           {summaryCards.map((card) => {
             const isSelected = selectedMetrics.includes(card.key);
             const def = metricByKey[card.key];
             return (
               <div
                 key={card.key}
-                className="card"
                 onClick={() => toggleMetric(card.key)}
-                style={{
-                  padding: 20, cursor: "pointer", transition: "all 0.2s",
+                className={`card p-5 cursor-pointer transition-all ${
+                  isSelected ? "ring-2 ring-offset-2" : ""
+                }`}
+                style={{ 
                   borderColor: isSelected ? def.color : undefined,
-                  boxShadow: isSelected ? `0 0 0 1px ${def.color}40` : undefined,
+                  ringColor: isSelected ? `${def.color}40` : undefined 
                 }}
               >
-                <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  {card.label}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-slate-500">{card.label}</span>
                   {isSelected && (
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: def.color, display: "inline-block" }} />
+                    <div 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: def.color }}
+                    />
                   )}
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)", fontFamily: "'Space Mono', monospace" }}>
+                <div className="text-lg font-bold text-slate-900" style={{ fontFamily: 'SF Mono, Monaco, monospace' }}>
                   {card.value}
                 </div>
               </div>
@@ -193,30 +194,30 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* ── Campaign Comparison Bar Chart ───────────── */}
-      <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
-            Kampanya Karsilastirmasi — {metricByKey[primaryMetric].label}
+      {/* Campaign Comparison Bar Chart */}
+      <div className="card p-6 mb-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+            Kampanya Karşılaştırması — {metricByKey[primaryMetric].label}
           </h3>
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            En yuksek {topCampaigns.length} kampanya
+          <span className="text-xs text-slate-500">
+            En yüksek {topCampaigns.length} kampanya
           </span>
         </div>
 
         {campaignsLoading ? (
           <Skeleton h={300} />
         ) : topCampaigns.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-            Bu donem icin kampanya verisi yok.
+          <div className="text-center py-12 text-slate-500">
+            Bu dönem için kampanya verisi yok.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(300, topCampaigns.length * 42)}>
             <BarChart data={topCampaigns} layout="vertical" margin={{ left: 10, right: 30 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,45,74,0.8)" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
               <XAxis
                 type="number"
-                tick={{ fill: "#4a5a72", fontSize: 11 }}
+                tick={{ fill: "#64748b", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => metricByKey[primaryMetric].format(v)}
@@ -224,31 +225,42 @@ export default function AnalyticsPage() {
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fill: "#7a8ba8", fontSize: 11 }}
+                tick={{ fill: "#475569", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 width={160}
                 tickFormatter={(v: string) => v.length > 22 ? v.slice(0, 22) + "..." : v}
               />
               <Tooltip
-                contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }}
+                contentStyle={{ 
+                  background: "white", 
+                  border: "1px solid #e2e8f0", 
+                  borderRadius: 8, 
+                  fontSize: 12,
+                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                }}
                 formatter={(v: number) => [metricByKey[primaryMetric].format(v), metricByKey[primaryMetric].label]}
               />
-              <Bar dataKey={primaryMetric} fill={metricByKey[primaryMetric].color} radius={[0, 6, 6, 0]} />
+              <Bar 
+                dataKey={primaryMetric} 
+                fill={metricByKey[primaryMetric].color} 
+                radius={[0, 6, 6, 0]} 
+                maxBarSize={40}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* ── Daily Trend Chart ───────────────────────── */}
-      <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
-            Gunluk Trend
+      {/* Daily Trend Chart */}
+      <div className="card p-6 mb-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+            Günlük Trend
           </h3>
           {trendMetrics.length === 0 && (
-            <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>
-              Secilen metrikler (CPC, CPM, ROAS) icin gunluk veri mevcut degil. Harcama, Tiklama veya CTR secin.
+            <span className="text-xs text-slate-400 italic">
+              Seçilen metrikler (CPC, CPM, ROAS) için günlük veri mevcut değil
             </span>
           )}
         </div>
@@ -256,13 +268,13 @@ export default function AnalyticsPage() {
         {dailyLoading ? (
           <Skeleton h={300} />
         ) : daily.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-            Bu donem icin gunluk veri yok. Meta API baglantisi ve .env ayarlarini kontrol edin.
+          <div className="text-center py-12 text-slate-500">
+            Bu dönem için günlük veri yok.
           </div>
         ) : trendMetrics.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-            Secilen metrikler icin gunluk kirilim verisi mevcut degil.<br />
-            Trend gormek icin <strong>Harcama</strong>, <strong>Tiklama</strong> veya <strong>CTR</strong> metriklerinden birini secin.
+          <div className="text-center py-12 text-slate-500">
+            Seçilen metrikler için günlük kırılım verisi mevcut değil.<br />
+            Trend görmek için <strong>Harcama</strong>, <strong>Tıklama</strong> veya <strong>CTR</strong> seçin.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
@@ -270,23 +282,22 @@ export default function AnalyticsPage() {
               <defs>
                 {trendMetrics.map((mk) => (
                   <linearGradient key={`grad-${mk}`} id={`grad-${mk}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={metricByKey[mk].color} stopOpacity={0.25} />
+                    <stop offset="5%" stopColor={metricByKey[mk].color} stopOpacity={0.2} />
                     <stop offset="95%" stopColor={metricByKey[mk].color} stopOpacity={0} />
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,45,74,0.8)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis
                 dataKey="date_start"
-                tick={{ fill: "#4a5a72", fontSize: 11 }}
+                tick={{ fill: "#64748b", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => v?.slice(5)}
               />
-              {/* Left Y-axis for the first metric */}
               <YAxis
                 yAxisId="left"
-                tick={{ fill: "#4a5a72", fontSize: 11 }}
+                tick={{ fill: "#64748b", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => {
@@ -296,12 +307,11 @@ export default function AnalyticsPage() {
                   return String(v);
                 }}
               />
-              {/* Right Y-axis if 2+ metrics with different scales */}
               {trendMetrics.length > 1 && (
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fill: "#4a5a72", fontSize: 11 }}
+                  tick={{ fill: "#64748b", fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => {
@@ -313,8 +323,13 @@ export default function AnalyticsPage() {
                 />
               )}
               <Tooltip
-                contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }}
-                labelStyle={{ color: "var(--text-secondary)" }}
+                contentStyle={{ 
+                  background: "white", 
+                  border: "1px solid #e2e8f0", 
+                  borderRadius: 8, 
+                  fontSize: 12,
+                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                }}
                 formatter={(v: number, name: string) => {
                   const def = metricByKey[name as MetricKey];
                   return def ? [def.format(v), def.label] : [v, name];
@@ -334,7 +349,7 @@ export default function AnalyticsPage() {
               ))}
               {trendMetrics.length > 1 && (
                 <Legend
-                  wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }}
+                  wrapperStyle={{ fontSize: 11, color: "#64748b" }}
                   formatter={(value: string) => metricByKey[value as MetricKey]?.label || value}
                 />
               )}
@@ -343,25 +358,25 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* ── Campaign Metrics Table ──────────────────── */}
-      <div className="card" style={{ padding: 24 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      {/* Campaign Metrics Table */}
+      <div className="card p-6">
+        <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-5">
           Kampanya Detay Tablosu
         </h3>
         {campaignsLoading ? (
           <Skeleton h={200} />
         ) : topCampaigns.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+          <div className="text-center py-12 text-slate-500">
             Kampanya verisi yok.
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Kampanya</th>
                   {selectedMetrics.map((mk) => (
-                    <th key={mk} style={{ color: metricByKey[mk].color }}>
+                    <th key={mk} className="text-right" style={{ color: metricByKey[mk].color }}>
                       {metricByKey[mk].label}
                     </th>
                   ))}
@@ -370,11 +385,13 @@ export default function AnalyticsPage() {
               <tbody>
                 {topCampaigns.map((c: Campaign) => (
                   <tr key={c.id}>
-                    <td style={{ color: "var(--text-primary)", fontWeight: 500, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {c.name}
+                    <td>
+                      <div className="font-medium text-slate-900 max-w-[220px] truncate" title={c.name}>
+                        {c.name}
+                      </div>
                     </td>
                     {selectedMetrics.map((mk) => (
-                      <td key={mk} className="mono" style={{ color: "var(--text-primary)" }}>
+                      <td key={mk} className="text-right mono font-medium text-slate-900">
                         {metricByKey[mk].format(Number(c[mk] ?? 0))}
                       </td>
                     ))}

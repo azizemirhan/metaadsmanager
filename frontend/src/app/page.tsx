@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -7,13 +8,15 @@ import {
 } from "recharts";
 import { api, Campaign } from "./lib/api";
 import { MetricCard } from "./components/MetricCard";
+import { useAccount } from "./components/Providers";
 
-const COLORS = ["#1877F2", "#42A5F5", "#00d68f", "#ffd32a", "#8b5cf6", "#ff4757"];
+const COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#10b981", "#8b5cf6"];
 
 function formatCurrency(v: unknown) {
   const n = Number(v ?? 0);
   return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
 function formatNum(v: unknown) {
   const n = Number(v ?? 0);
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -22,31 +25,48 @@ function formatNum(v: unknown) {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "Aktif", PAUSED: "Duraklatıldı", DELETED: "Silindi", ARCHIVED: "Arşivlendi"
+  ACTIVE: "Aktif", 
+  PAUSED: "Duraklatıldı", 
+  DELETED: "Silindi", 
+  ARCHIVED: "Arşivlendi"
+};
+
+const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  ACTIVE: { bg: "bg-success-50", text: "text-success-600", border: "border-success-200" },
+  PAUSED: { bg: "bg-warning-50", text: "text-warning-600", border: "border-warning-200" },
+  DELETED: { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200" },
+  ARCHIVED: { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200" },
 };
 
 export default function DashboardPage() {
+  const { accountId } = useAccount();
   const [days, setDays] = useState(30);
   const [exportLoading, setExportLoading] = useState(false);
 
   const { data: summaryData, isLoading: summaryLoading, isError: summaryError, error: summaryErr } = useQuery({
-    queryKey: ["summary", days],
-    queryFn: () => api.getSummary(days),
+    queryKey: ["summary", days, accountId],
+    queryFn: () => api.getSummary(days, accountId),
   });
 
   const { data: campaignsData, isLoading: campaignsLoading, isError: campaignsError, error: campaignsErr } = useQuery({
-    queryKey: ["campaigns", days],
-    queryFn: () => api.getCampaigns(days),
+    queryKey: ["campaigns", days, accountId],
+    queryFn: () => api.getCampaigns(days, accountId),
   });
 
   const { data: dailyData, isLoading: dailyLoading, isError: dailyError } = useQuery({
-    queryKey: ["daily", days],
-    queryFn: () => api.getDaily(days),
+    queryKey: ["daily", days, accountId],
+    queryFn: () => api.getDaily(days, accountId),
+  });
+
+  const { data: forecastData, isLoading: forecastLoading } = useQuery({
+    queryKey: ["forecast", days, accountId],
+    queryFn: () => api.getForecast(days, accountId),
   });
 
   const campaigns = campaignsData?.data || [];
   const summary = summaryData;
   const daily = dailyData?.data || [];
+  const forecast = forecastData;
   const apiError = summaryErr || campaignsErr;
   const hasApiError = summaryError || campaignsError || dailyError;
 
@@ -71,168 +91,330 @@ export default function DashboardPage() {
   );
 
   return (
-    <div style={{ maxWidth: 1400 }}>
-      {/* API hatası varsa uyarı kutusu */}
-      {hasApiError && (
-        <div style={{
-          marginBottom: 24,
-          padding: 20,
-          background: "rgba(255,71,87,0.1)",
-          border: "1px solid rgba(255,71,87,0.3)",
-          borderRadius: 12,
-          color: "var(--text-primary)",
-        }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚠️ Meta API bağlantı hatası</div>
-          <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 8 }}>
-            {apiError?.message || "Veriler alınamadı. Backend ve .env ayarlarını kontrol edin."}
+    <div className="max-w-7xl mx-auto">
+      {/* API Error Alert */}
+      {hasApiError && (() => {
+        const msg = apiError?.message || "Veriler alınamadı.";
+        const isNetworkError = /failed to fetch|network error|load failed/i.test(String(msg));
+        return (
+          <div className="alert alert-error mb-6">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-red-600 text-xs font-bold">!</span>
+              </div>
+              <div>
+                <div className="font-semibold mb-1">
+                  {isNetworkError ? "Backend'e ulaşılamıyor" : "Meta API bağlantı hatası"}
+                </div>
+                <div className="text-red-700/80 text-sm mb-2">{msg}</div>
+                <div className="text-red-600/70 text-xs space-y-1">
+                  {isNetworkError ? (
+                    <>
+                      <p>Tarayıcıda <a href={process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"} target="_blank" rel="noopener noreferrer" className="underline">http://localhost:8000</a> adresini açın — API yanıt veriyorsa backend çalışıyordur; vermiyorsa <code className="bg-red-100 px-1 rounded">docker compose logs backend</code> ile kontrol edin.</p>
+                      <p>Frontend Docker dışında çalışıyorsa <code className="bg-red-100 px-1 rounded">NEXT_PUBLIC_API_URL</code> değerinin doğru olduğundan emin olun.</p>
+                    </>
+                  ) : (
+                    <p>Token, önce <strong>Ayarlar</strong> sayfasındaki / <strong>backend/settings.json</strong> içindeki değerden okunur; sadece .env güncellemek yetmez. Yeni tokenı Ayarlar sayfasından kaydedin veya settings.json içindeki META_ACCESS_TOKEN değerini güncelleyin.</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            Token süresi dolmuş olabilir (Graph API Explorer token’ları birkaç saat geçerlidir). Yeni token alıp <code style={{ background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4 }}>backend/.env</code> içindeki <code style={{ background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4 }}>META_ACCESS_TOKEN</code> değerini güncelleyin ve backend’i yeniden başlatın.
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* Veri yok ama hata da yok: hesapta bu dönemde kampanya/veri olmayabilir */}
+      {/* No Data Warning */}
       {!hasApiError && !summaryLoading && !campaignsLoading && campaigns.length === 0 && Number(summary?.spend ?? 0) === 0 && (
-        <div style={{
-          marginBottom: 24,
-          padding: 20,
-          background: "rgba(255,211,42,0.08)",
-          border: "1px solid rgba(255,211,42,0.25)",
-          borderRadius: 12,
-          color: "var(--text-primary)",
-        }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>📊 Bu dönemde veri yok</div>
-          <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-            Son {days} günde bu reklam hesabında kampanya veya harcama görünmüyor. Farklı bir periyot seçin veya Meta Ads Manager’da hesabın doğru ve aktif kampanyaları olduğundan emin olun.
+        <div className="alert alert-warning mb-6">
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-amber-600 text-xs">⚠</span>
+            </div>
+            <div>
+              <div className="font-semibold mb-1">Bu dönemde veri yok</div>
+              <div className="text-amber-800/80 text-sm">
+                Son {days} günde bu reklam hesabında kampanya veya harcama görünmüyor. Farklı bir periyot seçin.
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
-            Genel Bakış
-          </h1>
-          <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
-            Meta Ads hesabınızın performans özeti
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900 mb-1">Genel Bakış</h1>
+          <p className="text-slate-500 text-sm">Meta Ads hesabınızın performans özeti</p>
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div className="flex items-center gap-3">
           {/* Period Selector */}
-          <div style={{ display: "flex", gap: 4, background: "var(--bg-card)", borderRadius: 10, padding: 4, border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
             {[7, 14, 30, 90].map(d => (
-              <button key={d} onClick={() => setDays(d)} style={{
-                padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
-                background: days === d ? "var(--meta-blue)" : "transparent",
-                color: days === d ? "white" : "var(--text-secondary)",
-                fontWeight: days === d ? 600 : 400,
-                fontSize: 13, fontFamily: "'DM Sans', sans-serif",
-                transition: "all 0.15s",
-              }}>
+              <button
+                key={d}
+                onClick={() => setDays(d)}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  days === d 
+                    ? "bg-primary-600 text-white shadow-sm" 
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
                 {d}G
               </button>
             ))}
           </div>
-          <button className="btn-outline" onClick={handleExport} disabled={exportLoading}>
-            {exportLoading ? "⏳ İndiriliyor..." : "⬇️ CSV İndir"}
+          <button 
+            className="btn-outline flex items-center gap-2"
+            onClick={handleExport}
+            disabled={exportLoading}
+          >
+            {exportLoading ? (
+              <>
+                <LoadingIcon className="w-4 h-4 animate-spin" />
+                İndiriliyor...
+              </>
+            ) : (
+              <>
+                <DownloadIcon className="w-4 h-4" />
+                CSV İndir
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
         {summaryLoading ? (
           Array(4).fill(0).map((_, i) => (
-            <div key={i} className="card" style={{ padding: 24 }}>
+            <div key={i} className="card p-6">
               <Skeleton h={12} w="60%" /><br />
-              <Skeleton h={28} w="80%" /><br />
-              <Skeleton h={12} w="40%" />
+              <Skeleton h={28} w="80%" className="mt-4" /><br />
+              <Skeleton h={12} w="40%" className="mt-2" />
             </div>
           ))
         ) : (
           <>
-            <MetricCard label="Toplam Harcama" value={formatCurrency(Number(summary?.spend ?? 0))} icon="💸" color="var(--meta-blue)" />
-            <MetricCard label="Gösterim" value={formatNum(Number(summary?.impressions ?? 0))} icon="👁️" color="var(--meta-purple)" />
-            <MetricCard label="Tıklama" value={formatNum(Number(summary?.clicks ?? 0))} icon="🖱️" color="var(--meta-green)" />
-            <MetricCard label="Ort. CTR" value={`%${Number(summary?.ctr ?? 0).toFixed(2)}`} icon="📊"
-              color={Number(summary?.ctr ?? 0) >= 1 ? "var(--meta-green)" : "var(--meta-red)"}
+            <MetricCard 
+              label="Toplam Harcama" 
+              value={formatCurrency(Number(summary?.spend ?? 0))} 
+              icon="💸" 
+              color="#2563eb"
+              trend={Number(summary?.spend ?? 0) > 0 ? "up" : "neutral"}
+              trendLabel="Bu dönem" 
+            />
+            <MetricCard 
+              label="Gösterim" 
+              value={formatNum(Number(summary?.impressions ?? 0))} 
+              icon="👁️" 
+              color="#8b5cf6" 
+            />
+            <MetricCard 
+              label="Tıklama" 
+              value={formatNum(Number(summary?.clicks ?? 0))} 
+              icon="🖱️" 
+              color="#10b981" 
+            />
+            <MetricCard 
+              label="Ortalama CTR" 
+              value={`%${Number(summary?.ctr ?? 0).toFixed(2)}`}
+              icon="📊"
+              color={Number(summary?.ctr ?? 0) >= 1 ? "#10b981" : "#ef4444"}
               trend={Number(summary?.ctr ?? 0) >= 1 ? "up" : "down"}
-              trendLabel={Number(summary?.ctr ?? 0) >= 1 ? "İyi" : "Düşük"} />
+              trendLabel={Number(summary?.ctr ?? 0) >= 1 ? "İyi" : "Düşük"} 
+            />
           </>
         )}
       </div>
 
-      {/* Second row KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-        {summaryLoading ? (
-          Array(3).fill(0).map((_, i) => <div key={i} className="card" style={{ padding: 24, height: 100 }}><Skeleton h={60} /></div>)
-        ) : (
-          <>
-            <MetricCard label="Ort. CPC" value={formatCurrency(Number(summary?.cpc ?? 0))} icon="💰" />
-            <MetricCard label="CPM" value={formatCurrency(Number(summary?.cpm ?? 0))} icon="📱" />
-            <MetricCard label="Aktif Kampanya" value={String(campaigns.filter(c => c.status === "ACTIVE").length)} icon="🟢" color="var(--meta-green)" />
-          </>
-        )}
+      {/* Secondary KPIs + Forecast */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+        {/* Secondary Metrics */}
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5">
+          {summaryLoading ? (
+            Array(3).fill(0).map((_, i) => (
+              <div key={i} className="card p-6 h-28">
+                <Skeleton h={60} />
+              </div>
+            ))
+          ) : (
+            <>
+              <MetricCard 
+                label="Ort. CPC" 
+                value={formatCurrency(Number(summary?.cpc ?? 0))} 
+                icon="💰"
+                color="#f59e0b"
+              />
+              <MetricCard 
+                label="CPM" 
+                value={formatCurrency(Number(summary?.cpm ?? 0))} 
+                icon="📱"
+                color="#ec4899"
+              />
+              <MetricCard 
+                label="Aktif Kampanya" 
+                value={String(campaigns.filter(c => c.status === "ACTIVE").length)} 
+                icon="🟢"
+                color="#10b981"
+              />
+            </>
+          )}
+        </div>
+
+        {/* Forecast Card */}
+        <div>
+          {forecastLoading ? (
+            <div className="card p-6 h-28">
+              <Skeleton h={60} />
+            </div>
+          ) : forecast && forecast.days_analyzed > 0 ? (
+            <div className="card p-6 bg-gradient-to-br from-primary-50 to-indigo-50 border-primary-100">
+              <div className="flex items-center gap-2 mb-2">
+                <ChartIcon className="w-4 h-4 text-primary-600" />
+                <span className="text-xs font-semibold text-primary-700 uppercase tracking-wider">
+                  Tahmini Harcama
+                </span>
+              </div>
+              <div className="text-2xl font-bold text-slate-900 mb-1" style={{ fontFamily: 'SF Mono, Monaco, monospace' }}>
+                {formatCurrency(forecast.forecast_total_spend)}
+              </div>
+              <div className="text-xs text-slate-600">
+                Son {forecast.days_analyzed} gün: {formatCurrency(forecast.average_daily_spend)}/gün
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* Charts Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24, marginBottom: 24 }}>
-        {/* Spend & Clicks Chart */}
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Günlük Harcama & Tıklama
-          </h3>
-          {dailyLoading ? <Skeleton h={220} /> : (
-            <ResponsiveContainer width="100%" height={220}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Main Chart */}
+        <div className="lg:col-span-2 card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+              Günlük Harcama & Tıklama
+            </h3>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                <span className="text-slate-600">Harcama</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-success-500" />
+                <span className="text-slate-600">Tıklama</span>
+              </div>
+            </div>
+          </div>
+          {dailyLoading ? (
+            <Skeleton h={280} />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={daily}>
                 <defs>
                   <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1877F2" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#1877F2" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="clicksGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00d68f" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#00d68f" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,45,74,0.8)" />
-                <XAxis dataKey="date_start" tick={{ fill: "#4a5a72", fontSize: 11 }} tickLine={false} axisLine={false}
-                  tickFormatter={(v) => v?.slice(5)} />
-                <YAxis yAxisId="left" tick={{ fill: "#4a5a72", fontSize: 11 }} tickLine={false} axisLine={false}
-                  tickFormatter={(v) => `₺${v}`} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: "#4a5a72", fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }}
-                  labelStyle={{ color: "var(--text-secondary)" }}
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="date_start" 
+                  tick={{ fill: "#64748b", fontSize: 11 }} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(v) => v?.slice(5)}
                 />
-                <Area yAxisId="left" type="monotone" dataKey="spend" stroke="#1877F2" strokeWidth={2}
-                  fill="url(#spendGrad)" name="Harcama (₺)" />
-                <Area yAxisId="right" type="monotone" dataKey="clicks" stroke="#00d68f" strokeWidth={2}
-                  fill="url(#clicksGrad)" name="Tıklama" />
+                <YAxis 
+                  yAxisId="left" 
+                  tick={{ fill: "#64748b", fontSize: 11 }} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(v) => `₺${v}`}
+                />
+                <YAxis 
+                  yAxisId="right" 
+                  orientation="right" 
+                  tick={{ fill: "#64748b", fontSize: 11 }} 
+                  tickLine={false} 
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{ 
+                    background: "white", 
+                    border: "1px solid #e2e8f0", 
+                    borderRadius: 8, 
+                    fontSize: 12,
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                  }}
+                  labelStyle={{ color: "#475569" }}
+                />
+                <Area 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="spend" 
+                  stroke="#2563eb" 
+                  strokeWidth={2}
+                  fill="url(#spendGrad)" 
+                  name="Harcama (₺)" 
+                />
+                <Area 
+                  yAxisId="right" 
+                  type="monotone" 
+                  dataKey="clicks" 
+                  stroke="#10b981" 
+                  strokeWidth={2}
+                  fill="url(#clicksGrad)" 
+                  name="Tıklama" 
+                />
               </AreaChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        {/* Objective Pie */}
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {/* Pie Chart */}
+        <div className="card p-6">
+          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-6">
             Harcama Dağılımı
           </h3>
-          {campaignsLoading ? <Skeleton h={220} /> : (
-            <ResponsiveContainer width="100%" height={220}>
+          {campaignsLoading ? (
+            <Skeleton h={280} />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
-                  dataKey="value" nameKey="name" paddingAngle={3}>
+                <Pie 
+                  data={pieData} 
+                  cx="50%" 
+                  cy="50%" 
+                  innerRadius={60} 
+                  outerRadius={90}
+                  dataKey="value" 
+                  nameKey="name" 
+                  paddingAngle={2}
+                >
                   {pieData.map((_, index) => (
                     <Cell key={index} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }}
-                  formatter={(v: number) => [formatCurrency(v), "Harcama"]} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    background: "white", 
+                    border: "1px solid #e2e8f0", 
+                    borderRadius: 8, 
+                    fontSize: 12,
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                  }}
+                  formatter={(v: number) => [formatCurrency(v), "Harcama"]} 
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 11, color: "#64748b" }} 
+                />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -240,77 +422,155 @@ export default function DashboardPage() {
       </div>
 
       {/* Top Campaigns Table */}
-      <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div className="card p-6 mb-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
             En İyi Kampanyalar
           </h3>
-          <a href="/campaigns" style={{ fontSize: 12, color: "var(--meta-blue)", textDecoration: "none" }}>Tümünü Gör →</a>
+          <a href="/campaigns" className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1">
+            Tümünü Gör
+            <ArrowRightIcon className="w-4 h-4" />
+          </a>
         </div>
-        {campaignsLoading ? <Skeleton h={200} /> : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Kampanya Adı</th>
-                <th>Durum</th>
-                <th>Harcama</th>
-                <th>Gösterim</th>
-                <th>CTR</th>
-                <th>CPC</th>
-                <th>ROAS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topCampaigns.map(c => (
-                <tr key={c.id}>
-                  <td style={{ color: "var(--text-primary)", fontWeight: 500, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {c.name}
-                  </td>
-                  <td>
-                    <span style={{
-                      fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20,
-                      background: c.status === "ACTIVE" ? "rgba(0,214,143,0.1)" : "rgba(122,139,168,0.1)",
-                      color: c.status === "ACTIVE" ? "var(--meta-green)" : "var(--text-muted)",
-                    }}>
-                      {STATUS_LABELS[c.status] || c.status}
-                    </span>
-                  </td>
-                  <td className="mono" style={{ color: "var(--text-primary)" }}>{formatCurrency(c.spend)}</td>
-                  <td className="mono">{formatNum(c.impressions)}</td>
-                  <td className="mono" style={{ color: Number(c.ctr ?? 0) >= 1 ? "var(--meta-green)" : "var(--meta-red)" }}>
-                    %{Number(c.ctr ?? 0).toFixed(2)}
-                  </td>
-                  <td className="mono">{formatCurrency(c.cpc)}</td>
-                  <td className="mono" style={{ color: Number(c.roas ?? 0) >= 2 ? "var(--meta-green)" : Number(c.roas ?? 0) >= 1 ? "var(--meta-yellow)" : "var(--meta-red)" }}>
-                    {Number(c.roas ?? 0).toFixed(2)}x
-                  </td>
+        {campaignsLoading ? (
+          <Skeleton h={200} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Kampanya Adı</th>
+                  <th>Durum</th>
+                  <th className="text-right">Harcama</th>
+                  <th className="text-right">Gösterim</th>
+                  <th className="text-right">CTR</th>
+                  <th className="text-right">CPC</th>
+                  <th className="text-right">ROAS</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {topCampaigns.map(c => {
+                  const statusStyle = STATUS_COLORS[c.status] || STATUS_COLORS.ARCHIVED;
+                  return (
+                    <tr key={c.id}>
+                      <td>
+                        <div className="font-medium text-slate-900 max-w-[200px] truncate" title={c.name}>
+                          {c.name}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
+                          {STATUS_LABELS[c.status] || c.status}
+                        </span>
+                      </td>
+                      <td className="text-right mono font-medium text-slate-900">
+                        {formatCurrency(c.spend)}
+                      </td>
+                      <td className="text-right mono text-slate-600">
+                        {formatNum(c.impressions)}
+                      </td>
+                      <td className={`text-right mono font-medium ${Number(c.ctr ?? 0) >= 1 ? "text-success-600" : "text-danger-600"}`}>
+                        %{Number(c.ctr ?? 0).toFixed(2)}
+                      </td>
+                      <td className="text-right mono text-slate-600">
+                        {formatCurrency(c.cpc)}
+                      </td>
+                      <td className={`text-right mono font-medium ${
+                        Number(c.roas ?? 0) >= 2 ? "text-success-600" : 
+                        Number(c.roas ?? 0) >= 1 ? "text-warning-600" : "text-danger-600"
+                      }`}>
+                        {Number(c.roas ?? 0).toFixed(2)}x
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Top Campaigns Bar Chart */}
-      <div className="card" style={{ padding: 24 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      {/* Campaigns Bar Chart */}
+      <div className="card p-6">
+        <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-5">
           Kampanya Harcama Karşılaştırması
         </h3>
-        {campaignsLoading ? <Skeleton h={200} /> : (
-          <ResponsiveContainer width="100%" height={200}>
+        {campaignsLoading ? (
+          <Skeleton h={220} />
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={topCampaigns} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,45,74,0.8)" horizontal={false} />
-              <XAxis type="number" tick={{ fill: "#4a5a72", fontSize: 11 }} tickLine={false} axisLine={false}
-                tickFormatter={(v) => `₺${v}`} />
-              <YAxis type="category" dataKey="name" tick={{ fill: "#7a8ba8", fontSize: 11 }} tickLine={false} axisLine={false}
-                width={150} tickFormatter={(v) => v.length > 20 ? v.slice(0, 20) + "..." : v} />
-              <Tooltip contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }}
-                formatter={(v: number) => [formatCurrency(v), "Harcama"]} />
-              <Bar dataKey="spend" fill="#1877F2" radius={[0, 6, 6, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+              <XAxis 
+                type="number" 
+                tick={{ fill: "#64748b", fontSize: 11 }} 
+                tickLine={false} 
+                axisLine={false}
+                tickFormatter={(v) => `₺${v}`} 
+              />
+              <YAxis 
+                type="category" 
+                dataKey="name" 
+                tick={{ fill: "#475569", fontSize: 11 }} 
+                tickLine={false} 
+                axisLine={false}
+                width={150} 
+                tickFormatter={(v) => v.length > 22 ? v.slice(0, 22) + "..." : v} 
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  background: "white", 
+                  border: "1px solid #e2e8f0", 
+                  borderRadius: 8, 
+                  fontSize: 12,
+                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                }}
+                formatter={(v: number) => [formatCurrency(v), "Harcama"]} 
+              />
+              <Bar 
+                dataKey="spend" 
+                fill="#2563eb" 
+                radius={[0, 6, 6, 0]}
+                maxBarSize={40}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
     </div>
+  );
+}
+
+// Icons
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+}
+
+function LoadingIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
+  );
+}
+
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
   );
 }

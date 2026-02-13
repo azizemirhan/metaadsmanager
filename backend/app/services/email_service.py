@@ -1,18 +1,19 @@
 import smtplib
-import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime
 from dotenv import load_dotenv
+from app import config
 
 load_dotenv()
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+
+def _smtp_host(): return config.get_setting("SMTP_HOST") or "smtp.gmail.com"
+def _smtp_port(): return config.get_setting_int("SMTP_PORT", 587)
+def _smtp_user(): return config.get_setting("SMTP_USER") or ""
+def _smtp_password(): return config.get_setting("SMTP_PASSWORD") or ""
 
 
 def send_report_email(
@@ -26,7 +27,7 @@ def send_report_email(
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = SMTP_USER
+        msg["From"] = _smtp_user()
         msg["To"] = to_email
 
         # HTML içeriği
@@ -45,10 +46,10 @@ def send_report_email(
             msg.attach(attachment)
 
         # SMTP ile gönder
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        with smtplib.SMTP(_smtp_host(), _smtp_port()) as server:
             server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, to_email, msg.as_string())
+            server.login(_smtp_user(), _smtp_password())
+            server.sendmail(_smtp_user(), to_email, msg.as_string())
 
         return True
     except Exception as e:
