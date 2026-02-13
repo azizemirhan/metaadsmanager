@@ -1,11 +1,14 @@
 import asyncio
 import json
+import logging
 import httpx
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional
 from dotenv import load_dotenv
 from app import config
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -43,13 +46,14 @@ class MetaAdsService:
     def __init__(self):
         self.base_url = META_BASE_URL
 
-    async def _get(self, endpoint: str, params: dict = {}) -> dict:
+    async def _get(self, endpoint: str, params: Optional[dict] = None) -> dict:
         """Meta API'ye GET isteği gönderir (endpoint zaten account_id içerir)."""
         if not _is_meta_configured():
             raise MetaAPIError(
                 "Meta API yapılandırılmamış. Lütfen Ayarlar veya backend/.env dosyasında "
                 "META_ACCESS_TOKEN ve META_AD_ACCOUNT_ID değerlerini gerçek Meta hesap bilgilerinizle doldurun."
             )
+        params = dict(params) if params else {}
         params["access_token"] = _get_token()
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(f"{self.base_url}/{endpoint}", params=params)
@@ -64,8 +68,7 @@ class MetaAdsService:
                 err = body.get("error") or {}
                 msg = err.get("message", str(e))
                 code = err.get("code", "")
-                import logging
-                logging.warning(f"Meta API hata: status={response.status_code} code={code} message={msg}")
+                logger.warning("Meta API hata: status=%s code=%s message=%s", response.status_code, code, msg)
                 raise MetaAPIError(f"Meta API hatası: {msg}")
             return response.json()
 
@@ -89,8 +92,7 @@ class MetaAdsService:
                     pass
                 err = body.get("error") or {}
                 msg = err.get("message", str(e))
-                import logging
-                logging.warning(f"Meta API POST hata: status={response.status_code} message={msg}")
+                logger.warning("Meta API POST hata: status=%s message=%s", response.status_code, msg)
                 raise MetaAPIError(f"Meta API hatası: {msg}")
             return response.json()
 
@@ -116,8 +118,7 @@ class MetaAdsService:
         )
         campaigns = data.get("data", [])
         if not campaigns:
-            import logging
-            logging.info(f"Meta API: Kampanya listesi boş (son {days} gün). Hesap: {aid}")
+            logger.info("Meta API: Kampanya listesi boş (son %d gün). Hesap: %s", days, aid)
 
         # Her kampanya için insights çek (rate limit için araya kısa gecikme)
         enriched = []
@@ -135,7 +136,7 @@ class MetaAdsService:
                 f"{campaign_id}/insights",
                 params={
                     "fields": "impressions,clicks,spend,reach,ctr,cpc,cpm,cpp,actions,action_values,frequency",
-                    "time_range": str(self._date_range(days)).replace("'", '"')
+                    "time_range": json.dumps(self._date_range(days))
                 }
             )
             if data.get("data"):
@@ -166,8 +167,8 @@ class MetaAdsService:
                     "conversion_value": conversion_value,
                     "roas": round(roas, 2),
                 }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("get_campaign_insights hatası (campaign_id=%s): %s", campaign_id, e)
         return {
             "impressions": 0, "clicks": 0, "spend": 0, "reach": 0,
             "ctr": 0, "cpc": 0, "cpm": 0, "frequency": 0,
@@ -217,7 +218,7 @@ class MetaAdsService:
             f"{aid}/insights",
             params={
                 "fields": "impressions,clicks,spend,reach,ctr,cpc,actions",
-                "time_range": str(self._date_range(days)).replace("'", '"'),
+                "time_range": json.dumps(self._date_range(days)),
                 "time_increment": "1"
             }
         )
@@ -232,7 +233,7 @@ class MetaAdsService:
             f"{aid}/insights",
             params={
                 "fields": "impressions,clicks,spend,reach,ctr,cpc,cpm,actions,action_values",
-                "time_range": str(self._date_range(days)).replace("'", '"'),
+                "time_range": json.dumps(self._date_range(days)),
             }
         )
         if data.get("data"):
@@ -258,7 +259,7 @@ class MetaAdsService:
             fields = "impressions,clicks,spend,reach,ctr,cpc,cpm,actions,action_values,frequency"
         params = {
             "fields": fields,
-            "time_range": str(self._date_range(days)).replace("'", '"'),
+            "time_range": json.dumps(self._date_range(days)),
             "breakdowns": breakdowns,
         }
         if time_increment:
@@ -266,7 +267,8 @@ class MetaAdsService:
         try:
             data = await self._get(f"{aid}/insights", params=params)
             return data.get("data", [])
-        except Exception:
+        except Exception as e:
+            logger.warning("get_insights_with_breakdown hatası: %s", e)
             return []
 
     async def get_ad_sets_with_insights(self, days: int = 30, account_id: Optional[str] = None) -> list[dict]:
@@ -401,11 +403,13 @@ class MetaAdsService:
                 raise MetaAPIError(err.get("message", str(e)))
             out = response.json()
             images = out.get("images") or {}
-            # images key is the hash we need
+            # images: {"filename": {"hash": "abc123", ...}} veya {"hash_value": ...}
             for key, val in images.items():
                 if isinstance(val, dict) and "hash" in val:
                     return {"hash": val["hash"]}
-                return {"hash": key}
+            # Fallback: ilk key'i hash olarak kullan
+            if images:
+                return {"hash": next(iter(images))}
             raise MetaAPIError("Görsel yükleme yanıtında hash bulunamadı.")
 
     async def upload_ad_video(self, account_id: str, video_url: str, title: Optional[str] = None) -> dict:

@@ -86,8 +86,8 @@ export default function DashboardPage() {
     finally { setExportLoading(false); }
   };
 
-  const Skeleton = ({ h = 20, w = "100%" }: { h?: number; w?: string }) => (
-    <div className="skeleton" style={{ height: h, width: w }} />
+  const Skeleton = ({ h = 20, w = "100%", className = "" }: { h?: number; w?: string; className?: string }) => (
+    <div className={`skeleton ${className}`} style={{ height: h, width: w }} />
   );
 
   return (
