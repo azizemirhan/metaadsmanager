@@ -105,7 +105,10 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-5">
-          {SETTING_KEYS.map(({ id, label, type, placeholder, hint }) => (
+          {SETTING_KEYS.map((setting) => {
+            const { id, label, type, placeholder } = setting;
+            const hint = "hint" in setting ? setting.hint : undefined;
+            return (
             <div key={id}>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
                 {label}
@@ -119,7 +122,8 @@ export default function SettingsPage() {
               />
               {hint && <div className="text-xs text-slate-400 mt-1.5">{hint}</div>}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

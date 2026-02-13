@@ -19,10 +19,10 @@ RATE_LIMIT_WINDOW = 60  # saniye
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 
 
-def _rate_limit_middleware(request: Request, call_next):
+async def _rate_limit_middleware(request: Request, call_next):
     """API isteklerini dakikada 120 ile sınırlar (IP bazlı)."""
     if not config.IS_PRODUCTION:
-        return call_next(request)
+        return await call_next(request)
     client = request.client.host if request.client else "unknown"
     now = time.time()
     # Eski kayıtları temizle
@@ -33,7 +33,7 @@ def _rate_limit_middleware(request: Request, call_next):
             content={"detail": "Çok fazla istek. Lütfen bir dakika bekleyin."},
         )
     _rate_limit_store[client].append(now)
-    return call_next(request)
+    return await call_next(request)
 
 
 @asynccontextmanager

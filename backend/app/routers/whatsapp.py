@@ -14,7 +14,7 @@ from app.services.whatsapp_service import whatsapp_service, WhatsAppError
 from app.services.meta_service import meta_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/whatsapp", tags=["WhatsApp"])
+router = APIRouter(tags=["WhatsApp"])
 
 
 # --- Request/Response Modelleri ---

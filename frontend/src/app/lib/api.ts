@@ -286,7 +286,9 @@ export const api = {
     }),
 
   sendWhatsAppDailySummary: (toPhone: string, adAccountId?: string | null) =>
-    apiFetch<{ success: boolean; message: string; message_id?: string }>(`/api/whatsapp/send-daily-summary?to_phone=${encodeURIComponent(toPhone)}${adAccountId ? `&ad_account_id=${adAccountId}` : ""}`),
+    apiFetch<{ success: boolean; message: string; message_id?: string }>(`/api/whatsapp/send-daily-summary?to_phone=${encodeURIComponent(toPhone)}${adAccountId ? `&ad_account_id=${adAccountId}` : ""}`, {
+      method: "POST",
+    }),
 
   getWhatsAppHealth: () =>
     apiFetch<{ configured: boolean; phone_id?: string; message: string }>("/api/whatsapp/health"),

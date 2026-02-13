@@ -359,7 +359,7 @@ async def delete_saved_report(
 
 @router.get("/export/csv")
 async def export_csv(
-    type: str = Query("campaigns", regex="^(campaigns|ads|adsets|daily)$"),
+    type: str = Query("campaigns", pattern="^(campaigns|ads|adsets|daily)$"),
     days: int = Query(30, ge=7, le=365)
 ):
     """Verileri CSV olarak indir"""
@@ -434,7 +434,7 @@ def _build_html_report(title: str, period: str, body_content: str) -> str:
 
 @router.get("/export/html")
 async def export_html(
-    report_type: str = Query("weekly_summary", regex="^(weekly_summary|campaign_comparison|performance_trend)$"),
+    report_type: str = Query("weekly_summary", pattern="^(weekly_summary|campaign_comparison|performance_trend)$"),
     days: int = Query(30, ge=7, le=365)
 ):
     """HTML rapor olustur ve indir"""

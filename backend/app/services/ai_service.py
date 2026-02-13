@@ -54,7 +54,7 @@ Her analizde şu formatta yanıt ver:
 def _gemini_analyze_campaigns(campaigns_data: list[dict]) -> str:
     import google.generativeai as genai
     genai.configure(api_key=config.get_setting("GEMINI_API_KEY") or "")
-    model = genai.GenerativeModel("gemini-pro")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     summary = []
     for c in campaigns_data[:20]:
         summary.append({
@@ -85,7 +85,7 @@ Toplam {len(campaigns_data)} kampanya var. Lütfen kapsamlı bir analiz yap."""
 def _gemini_analyze_single(campaign: dict) -> str:
     import google.generativeai as genai
     genai.configure(api_key=config.get_setting("GEMINI_API_KEY") or "")
-    model = genai.GenerativeModel("gemini-pro")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = f"""{SYSTEM_PROMPT}
 
 Bu kampanyayı derinlemesine analiz et (Türkçe):
@@ -111,7 +111,7 @@ Bu kampanya için özel optimizasyon önerileri ver."""
 def _gemini_weekly_report(data: dict) -> str:
     import google.generativeai as genai
     genai.configure(api_key=config.get_setting("GEMINI_API_KEY") or "")
-    model = genai.GenerativeModel("gemini-pro")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = f"""Sen bir Meta Ads raporlama uzmanısın. Haftalık performans raporlarını profesyonel ve anlaşılır şekilde özetliyorsun (Türkçe).
 
 Bu haftalık verilere göre yöneticiye göndermek için kısa ve öz bir rapor yaz:
@@ -405,7 +405,7 @@ Türkçe olarak: 1) Özet bulgular 2) En iyi / en zayıf performans 3) Somut ön
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel("gemini-pro")
+            model = genai.GenerativeModel("gemini-2.0-flash")
             response = model.generate_content(prompt_common + "\n\nVeri:\n" + data_str)
             if response.candidates:
                 part = response.candidates[0].content.parts[0] if response.candidates[0].content.parts else None

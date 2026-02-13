@@ -125,13 +125,16 @@ async def get_anomalies(
 
 
 @router.get("/analyze")
-async def analyze_all_campaigns(days: int = Query(30, ge=7, le=365)):
+async def analyze_all_campaigns(
+    days: int = Query(30, ge=7, le=365),
+    ad_account_id: Optional[str] = Query(None),
+):
     """Tüm kampanyaları AI ile analiz et"""
     try:
-        campaigns = await meta_service.get_campaigns(days)
+        campaigns = await meta_service.get_campaigns(days, account_id=ad_account_id)
         if not campaigns:
             raise HTTPException(status_code=404, detail="Kampanya bulunamadı")
-        
+
         analysis = await analyze_campaigns(campaigns)
         return {
             "analysis": analysis,
@@ -145,15 +148,19 @@ async def analyze_all_campaigns(days: int = Query(30, ge=7, le=365)):
 
 
 @router.get("/analyze/{campaign_id}")
-async def analyze_campaign(campaign_id: str, days: int = Query(30, ge=7, le=365)):
+async def analyze_campaign(
+    campaign_id: str,
+    days: int = Query(30, ge=7, le=365),
+    ad_account_id: Optional[str] = Query(None),
+):
     """Tek bir kampanyayı derinlemesine analiz et"""
     try:
-        campaigns = await meta_service.get_campaigns(days)
+        campaigns = await meta_service.get_campaigns(days, account_id=ad_account_id)
         campaign = next((c for c in campaigns if c.get("id") == campaign_id), None)
-        
+
         if not campaign:
             raise HTTPException(status_code=404, detail="Kampanya bulunamadı")
-        
+
         analysis = await analyze_single_campaign(campaign)
         return {"campaign": campaign, "analysis": analysis}
     except HTTPException:

@@ -97,8 +97,8 @@ export default function AnalyticsPage() {
     { label: "CPM",           value: formatCurrency(Number(summary?.cpm ?? 0)),     key: "cpm" },
   ];
 
-  const Skeleton = ({ h = 20, w = "100%" }: { h?: number; w?: string }) => (
-    <div className="skeleton" style={{ height: h, width: w }} />
+  const Skeleton = ({ h = 20, w = "100%", className = "" }: { h?: number; w?: string; className?: string }) => (
+    <div className={`skeleton ${className}`} style={{ height: h, width: w }} />
   );
 
   return (
@@ -171,9 +171,9 @@ export default function AnalyticsPage() {
                 className={`card p-5 cursor-pointer transition-all ${
                   isSelected ? "ring-2 ring-offset-2" : ""
                 }`}
-                style={{ 
+                style={{
                   borderColor: isSelected ? def.color : undefined,
-                  ringColor: isSelected ? `${def.color}40` : undefined 
+                  ["--tw-ring-color" as string]: isSelected ? `${def.color}40` : undefined
                 }}
               >
                 <div className="flex items-center justify-between mb-2">
