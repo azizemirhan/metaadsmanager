@@ -21,6 +21,25 @@ export const api = {
   getAccounts: () =>
     apiFetch<{ data: { id: string; name: string }[] }>("/api/campaigns/accounts"),
 
+  getPages: () =>
+    apiFetch<{ data: { page_id: string; page_name: string; instagram_username: string }[] }>("/api/campaigns/pages"),
+
+  getSavedAdSummaries: () =>
+    apiFetch<{ data: { id: string; name: string; summary_text: string; created_at: string }[]; count: number }>(
+      "/api/ad-summaries"
+    ),
+  getSavedAdSummary: (id: string) =>
+    apiFetch<{ id: string; name: string; summary_text: string; created_at: string }>(
+      `/api/ad-summaries/${id}`
+    ),
+  saveAdSummary: (body: { name: string; summary_text: string }) =>
+    apiFetch<{ success: boolean; id: string; name: string; created_at: string }>("/api/ad-summaries", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  deleteAdSummary: (id: string) =>
+    apiFetch<{ success: boolean; id: string }>(`/api/ad-summaries/${id}`, { method: "DELETE" }),
+
   // Campaigns
   getCampaigns: (days = 30, adAccountId?: string | null) =>
     apiFetch<{ data: Campaign[]; count: number }>(`/api/campaigns?days=${days}${_accountParam(adAccountId)}`),
@@ -78,6 +97,10 @@ export const api = {
     }),
 
   // Faz 8: Reklam oluşturma
+  // Hedef kitle seçenekleri (reklam özeti için)
+  getTargetingOptions: () =>
+    apiFetch<{ demographics: { label: string; size?: string }[]; interests: { label: string; size?: string }[]; behaviors: { label: string; size?: string }[] }>("/api/targeting/options"),
+
   createCampaign: (body: { name: string; objective?: string; status?: string; ad_account_id?: string | null }) =>
     apiFetch<{ success: boolean; campaign: { id: string } }>("/api/campaigns", {
       method: "POST",
@@ -214,6 +237,23 @@ export const api = {
     a.click();
     URL.revokeObjectURL(url);
   },
+  /** Yerelde saklanan son oluşturulmuş CSV/ZIP'i indirir. Meta API çağrısı yapmaz. */
+  downloadLastExport: async (reportId: string) => {
+    const res = await fetch(`${API_BASE}/api/reports/saved/${reportId}/last-export`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || "İndirilemedi");
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const disp = res.headers.get("Content-Disposition");
+    const match = disp?.match(/filename="?([^";]+)"?/);
+    a.download = match ? match[1].trim() : `son_rapor_${reportId}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
   deleteSavedReport: (reportId: string) =>
     apiFetch<{ success: boolean }>(`/api/reports/saved/${reportId}`, { method: "DELETE" }),
   // Arka plan işleri (RabbitMQ/Celery): job başlat, durum, indir
@@ -236,6 +276,11 @@ export const api = {
     a.click();
     URL.revokeObjectURL(url);
   },
+  getJobPDF: (jobId: string) => `${API_BASE}/api/jobs/${jobId}/pdf`,
+  getAnalysisHistory: () =>
+    apiFetch<{ data: JobStatusResponse[]; count: number }>("/api/jobs/history/analyze"),
+  deleteJob: (jobId: string) =>
+    apiFetch<{ message: string; job_id: string }>(`/api/jobs/${jobId}`, { method: "DELETE" }),
   analyzeReport: (reportId: string) =>
     apiFetch<{
       report_id: string;
@@ -245,6 +290,55 @@ export const api = {
       analysis: string;
       row_count: number;
     }>("/api/ai/analyze-report", { method: "POST", body: JSON.stringify({ report_id: reportId }) }),
+
+  generateAdSummaryFromReports: (body: {
+    user_context: string;
+    user_context_image_base64?: string | null;
+    job_ids: string[];
+  }) =>
+    apiFetch<{ form: Record<string, unknown> }>("/api/ai/generate-ad-summary", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  // Stratejist Asistanı
+  getBehaviorModes: () =>
+    apiFetch<{ modes: BehaviorMode[] }>("/api/ai/behavior-modes"),
+  
+  generateStrategicAdSummary: async (body: {
+    user_context: string;
+    behavior_mode: string;
+    raw_data_csv?: string;
+    raw_data_json?: string;
+    job_ids: string[];
+    user_context_image_base64?: string | null;
+  }) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 120000);
+    try {
+      const res = await fetch(`${API_BASE}/api/ai/generate-strategic-ad-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { detail?: string }).detail || `HTTP ${res.status}`);
+      }
+      return res.json() as Promise<{
+        form: Record<string, unknown>;
+        strategy: { behavior_mode: string; mode_name: string; risk_level: string; budget_multiplier: number; applied_rules: string[]; performance_insights: { best_platforms: string[]; best_ages: string[]; excluded_platforms: string[]; excluded_ages: string[] }; lessons_applied: number };
+      }>;
+    } catch (e) {
+      clearTimeout(t);
+      if ((e as Error).name === "AbortError") {
+        throw new Error("İstek zaman aşımına uğradı (2 dakika). AI yanıt vermedi.");
+      }
+      throw e;
+    }
+  },
 
   // Reports
   exportCsv: async (type = "campaigns", days = 30) => {
@@ -293,6 +387,24 @@ export const api = {
   getWhatsAppHealth: () =>
     apiFetch<{ configured: boolean; phone_id?: string; message: string }>("/api/whatsapp/health"),
 };
+
+// AI Provider Types
+export interface AIProvider {
+  id: string;
+  name: string;
+  models: string[];
+  default_model: string;
+}
+
+export interface AIProvidersResponse {
+  providers: AIProvider[];
+}
+
+export interface CurrentAIProviderResponse {
+  provider: string;
+  model: string;
+  available_models: string[];
+}
 
 // Types
 export interface Campaign {
@@ -382,7 +494,18 @@ export interface JobStatusResponse {
   result_text?: string | null;
   file_path?: string | null;
   file_name?: string | null;
+  pdf_path?: string | null;
   error_message?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+}
+
+export interface BehaviorMode {
+  key: string;
+  name: string;
+  description: string;
+  risk_level: string;
+  budget_multiplier: number;
+  creative_variations: number;
+  features: string[];
 }

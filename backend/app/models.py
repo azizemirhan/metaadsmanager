@@ -43,6 +43,16 @@ class ReportCsvFile(Base):
     report: Mapped["SavedReport"] = relationship("SavedReport", back_populates="csv_files")
 
 
+class SavedAdSummary(Base):
+    """Kaydedilmiş reklam oluşturma özeti."""
+    __tablename__ = "saved_ad_summaries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
 class JobStatus(Base):
     """Arka plan işi: export veya analyze. Celery worker ilerlemeyi bu tabloda günceller."""
     __tablename__ = "job_status"
@@ -52,9 +62,10 @@ class JobStatus(Base):
     job_type: Mapped[str] = mapped_column(String(32), nullable=False)  # "export" | "analyze"
     status: Mapped[str] = mapped_column(String(32), nullable=False)  # "pending" | "running" | "completed" | "failed"
     progress: Mapped[int] = mapped_column(default=0)  # 0-100
-    result_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # analyze sonucu
+    result_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # analyze sonucu (metin)
     file_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # export: ZIP/CSV yolu
     file_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # indirme adı
+    pdf_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # analyze: PDF rapor yolu
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

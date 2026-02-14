@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 
+interface AIProvider {
+  id: string;
+  name: string;
+  models: string[];
+  default_model: string;
+}
+
 const SETTING_KEYS = [
   { id: "META_ACCESS_TOKEN", label: "Access Token", type: "password", placeholder: "EAAxxxxxxxxxxxxx...", hint: "Meta Developers → Tools → Graph API Explorer'dan alın" },
   { id: "META_AD_ACCOUNT_ID", label: "Ad Account ID", type: "text", placeholder: "act_123456789", hint: "Business Manager → Ad Accounts'ta bulabilirsiniz" },
@@ -10,7 +17,6 @@ const SETTING_KEYS = [
   { id: "META_APP_SECRET", label: "App Secret", type: "password", placeholder: "xxxxxxxxxxxxxxxxxxxxx" },
   { id: "ANTHROPIC_API_KEY", label: "Anthropic API Key (Claude)", type: "password", placeholder: "sk-ant-xxxxxxxxxxxxx", hint: "console.anthropic.com" },
   { id: "GEMINI_API_KEY", label: "Gemini API Key", type: "password", placeholder: "AIza...", hint: "aistudio.google.com/apikey" },
-  { id: "AI_PROVIDER", label: "AI Sağlayıcı", type: "text", placeholder: "gemini veya claude" },
   { id: "SMTP_HOST", label: "SMTP Host", type: "text", placeholder: "smtp.gmail.com" },
   { id: "SMTP_PORT", label: "SMTP Port", type: "text", placeholder: "587" },
   { id: "SMTP_USER", label: "E-posta (SMTP)", type: "email", placeholder: "rapor@sirketiniz.com" },
@@ -23,20 +29,70 @@ const WHATSAPP_KEYS = [
   { id: "WHATSAPP_WEBHOOK_VERIFY_TOKEN", label: "Webhook Verify Token", type: "password", placeholder: "your_secure_token", hint: "WhatsApp webhook doğrulama için güvenli token" },
 ] as const;
 
+const OLLAMA_KEYS = [
+  { id: "OLLAMA_BASE_URL", label: "Ollama Base URL", type: "text", placeholder: "http://localhost:11434", hint: "Ollama sunucu adresi" },
+] as const;
+
+// Model adlarını görseldeki gibi okunabilir formata çevir
+const getModelDisplayName = (modelId: string): string => {
+  const displayNames: Record<string, string> = {
+    // Gemini modelleri
+    "gemini-2.5-pro": "Gemini 2.5 Pro",
+    "gemini-2.5-flash": "Gemini 2.5 Flash",
+    "gemini-2.0-flash": "Gemini 2.0 Flash",
+    "gemini-2.0-flash-lite": "Gemini 2.0 Flash Lite",
+    "gemini-1.5-pro": "Gemini 1.5 Pro",
+    "gemini-1.5-flash": "Gemini 1.5 Flash",
+    // Claude modelleri
+    "claude-opus-4-5-20251101": "Claude Opus 4.5",
+    "claude-sonnet-4-5-20251101": "Claude Sonnet 4.5",
+    "claude-3-5-sonnet-20241022": "Claude 3.5 Sonnet",
+    "claude-3-haiku-20240307": "Claude 3 Haiku",
+    // Diğer
+    "default": "Varsayılan",
+  };
+  return displayNames[modelId] || modelId;
+};
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  
+  // AI Provider & Model state
+  const [aiProviders, setAiProviders] = useState<AIProvider[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string>("");
+  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const loadSettings = () => {
     setLoading(true);
     setError("");
-    api.getSettings()
-      .then((data) => setSettings(data || {}))
+    
+    // Load settings and AI providers in parallel
+    Promise.all([
+      api.getSettings(),
+      fetch(`${apiBase}/api/settings/ai-providers`).then(r => r.json()),
+    ])
+      .then(([settingsData, providersData]) => {
+        setSettings(settingsData || {});
+        setAiProviders(providersData.providers || []);
+        
+        // Set initial provider from settings
+        const currentProvider = settingsData?.AI_PROVIDER || "gemini";
+        setSelectedProvider(currentProvider);
+        
+        // Set initial models from settings
+        const initialModels: Record<string, string> = {};
+        providersData.providers?.forEach((p: AIProvider) => {
+          const modelKey = `AI_MODEL_${p.id.toUpperCase()}`;
+          initialModels[p.id] = settingsData?.[modelKey] || p.default_model;
+        });
+        setSelectedModels(initialModels);
+      })
       .catch((e: unknown) => {
         const msg = e instanceof Error ? e.message : "Ayarlar yüklenemedi.";
         setError(/failed to fetch|network error/i.test(String(msg))
@@ -55,15 +111,48 @@ export default function SettingsPage() {
     setError("");
   };
 
+  const handleProviderChange = (providerId: string) => {
+    setSelectedProvider(providerId);
+    setSettings((prev) => ({ ...prev, AI_PROVIDER: providerId }));
+    setError("");
+  };
+
+  const handleModelChange = (providerId: string, model: string) => {
+    setSelectedModels((prev) => ({ ...prev, [providerId]: model }));
+    const modelKey = `AI_MODEL_${providerId.toUpperCase()}`;
+    setSettings((prev) => ({ ...prev, [modelKey]: model }));
+    setError("");
+  };
+
+  const getCurrentProviderInfo = () => {
+    return aiProviders.find(p => p.id === selectedProvider);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError("");
     try {
       const body: Record<string, string> = {};
-      for (const { id } of [...SETTING_KEYS, ...WHATSAPP_KEYS]) {
+      
+      // Standard settings
+      for (const { id } of [...SETTING_KEYS, ...WHATSAPP_KEYS, ...OLLAMA_KEYS]) {
         const v = settings[id];
         if (v != null && v !== "" && v !== "***") body[id] = v;
       }
+      
+      // AI Provider
+      if (selectedProvider) {
+        body.AI_PROVIDER = selectedProvider;
+      }
+      
+      // AI Models for each provider
+      Object.entries(selectedModels).forEach(([providerId, model]) => {
+        const modelKey = `AI_MODEL_${providerId.toUpperCase()}`;
+        if (model && model !== "***") {
+          body[modelKey] = model;
+        }
+      });
+      
       await api.updateSettings(body);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -86,11 +175,91 @@ export default function SettingsPage() {
     );
   }
 
+  const currentProvider = getCurrentProviderInfo();
+
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 mb-1">Ayarlar</h1>
         <p className="text-slate-500 text-sm">API bağlantıları ve bildirim ayarları. Kaydedilen değerler sunucuda saklanır.</p>
+      </div>
+
+      {/* AI Provider Selection */}
+      <div className="card p-7 mb-5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center">
+            <AIIcon className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">AI Sağlayıcı & Model</h2>
+            <p className="text-xs text-slate-500">Analizler için kullanılacak AI servisi</p>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {/* Provider Selection */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              AI Sağlayıcı
+            </label>
+            <select
+              value={selectedProvider}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              className="input w-full"
+            >
+              {aiProviders.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+            <div className="text-xs text-slate-400 mt-1.5">
+              Analizler için kullanılacak AI servisini seçin
+            </div>
+          </div>
+
+          {/* Model Selection for current provider */}
+          {currentProvider && currentProvider.models.length > 0 && (
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                {currentProvider.name} Modeli
+              </label>
+              <select
+                value={selectedModels[selectedProvider] || currentProvider.default_model}
+                onChange={(e) => handleModelChange(selectedProvider, e.target.value)}
+                className="input w-full"
+              >
+                {currentProvider.models.map((model) => (
+                  <option key={model} value={model}>
+                    {getModelDisplayName(model)}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-slate-400 mt-1.5">
+                Kullanılacak modeli seçin (varsayılan: {currentProvider.default_model})
+              </div>
+            </div>
+          )}
+
+          {/* Ollama custom model input */}
+          {selectedProvider === "ollama" && (
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Ollama Modeli
+              </label>
+              <input
+                type="text"
+                value={selectedModels["ollama"] || "llama3.2"}
+                onChange={(e) => handleModelChange("ollama", e.target.value)}
+                placeholder="llama3.2, mistral, codellama..."
+                className="input w-full"
+              />
+              <div className="text-xs text-slate-400 mt-1.5">
+                Ollama&apos;da yüklü olan model adını girin (örn: llama3.2, mistral)
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="card p-7 mb-5">
@@ -124,6 +293,37 @@ export default function SettingsPage() {
             </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Ollama Ayarları */}
+      <div className="card p-7 mb-5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl flex items-center justify-center">
+            <OllamaIcon className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Ollama (Kendi AI Sunucun)</h2>
+            <p className="text-xs text-slate-500">Yerel/kendi sunucunda çalışan AI modelleri</p>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {OLLAMA_KEYS.map(({ id, label, type, placeholder, hint }) => (
+            <div key={id}>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                {label}
+              </label>
+              <input
+                type={type}
+                value={settings[id] ?? ""}
+                onChange={(e) => handleChange(id, e.target.value)}
+                placeholder={placeholder}
+                className="input w-full"
+              />
+              {hint && <div className="text-xs text-slate-400 mt-1.5">{hint}</div>}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -208,6 +408,23 @@ function SettingsIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function AIIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 7v6m3-3H9" />
+    </svg>
+  );
+}
+
+function OllamaIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
     </svg>
   );
 }

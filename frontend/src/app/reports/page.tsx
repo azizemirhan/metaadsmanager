@@ -16,6 +16,7 @@ type JobItem = {
   progress: number;
   resultText?: string | null;
   file_name?: string | null;
+  pdf_path?: string | null;
   error_message?: string | null;
 };
 
@@ -58,12 +59,95 @@ export default function ReportsPage() {
   const jobsRef = useRef<JobItem[]>([]);
   jobsRef.current = jobs;
 
+  // Sayfa yenilendiğinde job'ları localStorage'dan yükle
+  useEffect(() => {
+    const saved = localStorage.getItem("reports_jobs");
+    if (saved) {
+      try {
+        const parsed: JobItem[] = JSON.parse(saved);
+        // Sadece tamamlanmamış veya başarısız olmamış job'ları yükle
+        const active = parsed.filter(
+          (j) => j.status === "pending" || j.status === "running" || j.status === "completed"
+        );
+        setJobs(active);
+      } catch {
+        // ignore parse error
+      }
+    }
+  }, []);
+
+  // Job'lar değiştiğinde localStorage'a kaydet
+  useEffect(() => {
+    localStorage.setItem("reports_jobs", JSON.stringify(jobs));
+  }, [jobs]);
+
+  // Sayfa yüklendiğinde localStorage'daki aktif job'ların durumunu kontrol et
+  useEffect(() => {
+    const checkStoredJobs = async () => {
+      // Doğrudan localStorage'dan oku (jobs state henüz güncellenmemiş olabilir)
+      const saved = localStorage.getItem("reports_jobs");
+      if (!saved) return;
+      
+      try {
+        const parsed: JobItem[] = JSON.parse(saved);
+        const activeJobs = parsed.filter((j) => j.status === "pending" || j.status === "running");
+        
+        // Aktif job'ların güncel durumunu API'den al
+        for (const j of activeJobs) {
+          try {
+            const res: JobStatusResponse = await api.getJobStatus(j.jobId);
+            setJobs((prev) => {
+              // Eğer job zaten listede varsa güncelle, yoksa ekle
+              const exists = prev.find((x) => x.jobId === j.jobId);
+              if (exists) {
+                return prev.map((x) =>
+                  x.jobId === j.jobId
+                    ? {
+                        ...x,
+                        status: res.status,
+                        progress: res.progress,
+                        resultText: res.result_text ?? undefined,
+                        file_name: res.file_name ?? undefined,
+                        pdf_path: res.pdf_path ?? undefined,
+                        error_message: res.error_message ?? undefined,
+                      }
+                    : x
+                );
+              } else {
+                return [...prev, { ...j, 
+                  status: res.status, 
+                  progress: res.progress,
+                  resultText: res.result_text ?? undefined,
+                  file_name: res.file_name ?? undefined,
+                  pdf_path: res.pdf_path ?? undefined,
+                  error_message: res.error_message ?? undefined,
+                }];
+              }
+            });
+          } catch {
+            // Job bulunamazsa veya hata olursa sessizce devam et
+          }
+        }
+      } catch {
+        // ignore parse error
+      }
+    };
+    // Sayfa yüklendikten 1.5 saniye sonra kontrol et (API hazır olsun)
+    const t = setTimeout(checkStoredJobs, 1500);
+    return () => clearTimeout(t);
+  }, []); // Sadece mount'ta çalışır
+
   const { data: templatesData, isLoading: templatesLoading, isError: templatesError, refetch: refetchTemplates } = useQuery({
     queryKey: ["reportTemplates"],
     queryFn: api.getReportTemplates,
     refetchOnWindowFocus: false,
   });
   const { data: savedData, isLoading: savedLoading } = useQuery({ queryKey: ["savedReports"], queryFn: api.getSavedReports });
+  const { data: analysisHistory, isLoading: historyLoading } = useQuery({ 
+    queryKey: ["analysisHistory"], 
+    queryFn: api.getAnalysisHistory,
+    refetchOnWindowFocus: true,
+  });
 
   const templates: ReportTemplate[] = Array.isArray(templatesData?.data) ? templatesData.data : [];
   const savedReports: SavedReport[] = savedData?.data ?? [];
@@ -104,6 +188,7 @@ export default function ReportsPage() {
                     progress: res.progress,
                     resultText: res.result_text ?? undefined,
                     file_name: res.file_name ?? undefined,
+                    pdf_path: res.pdf_path ?? undefined,
                     error_message: res.error_message ?? undefined,
                   }
                 : x
@@ -118,12 +203,27 @@ export default function ReportsPage() {
     return () => clearInterval(t);
   }, []);
 
+  const handleDownloadLastExport = async (r: SavedReport) => {
+    try {
+      await api.downloadLastExport(r.id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "İndirilemedi";
+      alert(msg);
+    }
+  };
+
   const handleStartExport = async (r: SavedReport) => {
     try {
       const res = await api.startExportJob(r.id);
       addJob(res.job_id, r.id, r.name, "export");
     } catch (e) {
-      alert("İndirme başlatılamadı: " + (e instanceof Error ? e.message : "Hata"));
+      const msg = e instanceof Error ? e.message : "Hata";
+      const isNetwork = /failed to fetch|network error/i.test(String(msg));
+      alert(
+        isNetwork
+          ? "İndirme başlatılamadı: Backend'e ulaşılamıyor. Backend'in (http://localhost:8000) çalıştığından ve RabbitMQ/Redis/Celery worker'ın ayakta olduğundan emin olun."
+          : "İndirme başlatılamadı: " + msg
+      );
     }
   };
 
@@ -132,7 +232,13 @@ export default function ReportsPage() {
       const res = await api.startAnalyzeJob(r.id);
       addJob(res.job_id, r.id, r.name, "analyze");
     } catch (e) {
-      alert("Analiz başlatılamadı: " + (e instanceof Error ? e.message : "Hata"));
+      const msg = e instanceof Error ? e.message : "Hata";
+      const isNetwork = /failed to fetch|network error/i.test(String(msg));
+      alert(
+        isNetwork
+          ? "Analiz başlatılamadı: Backend'e ulaşılamıyor. Backend'in (http://localhost:8000) çalıştığından ve RabbitMQ/Redis/Celery worker'ın ayakta olduğundan emin olun."
+          : "Analiz başlatılamadı: " + msg
+      );
     }
   };
 
@@ -276,13 +382,110 @@ export default function ReportsPage() {
                       İndir
                     </button>
                   )}
-                  {j.status === "completed" && j.jobType === "analyze" && j.resultText && (
-                    <details className="mt-2">
-                      <summary className="text-xs text-primary-600 cursor-pointer hover:underline">Sonucu gör</summary>
-                      <div className="mt-2 text-xs text-slate-600 max-h-40 overflow-y-auto whitespace-pre-wrap border border-slate-100 rounded p-2">
-                        {j.resultText}
-                      </div>
-                    </details>
+                  {j.status === "completed" && j.jobType === "analyze" && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      {j.pdf_path && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/jobs/${j.jobId}/pdf`, '_blank')}
+                            className="btn-primary text-xs w-full flex items-center justify-center gap-1"
+                          >
+                            <PDFIcon className="w-3 h-3" />
+                            PDF Görüntüle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/jobs/${j.jobId}/pdf?download=1`;
+                              link.download = `${j.reportName}_analiz.pdf`;
+                              link.click();
+                            }}
+                            className="btn-outline text-xs w-full flex items-center justify-center gap-1"
+                          >
+                            <DownloadIcon className="w-3 h-3" />
+                            PDF İndir
+                          </button>
+                        </>
+                      )}
+                      {j.resultText && (
+                        <details className="mt-1">
+                          <summary className="text-xs text-slate-500 cursor-pointer hover:text-primary-600">Metin olarak gör</summary>
+                          <div className="mt-2 text-xs text-slate-600 max-h-40 overflow-y-auto whitespace-pre-wrap border border-slate-100 rounded p-2 bg-slate-50">
+                            {j.resultText}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Geçmiş Analizler */}
+        <div className="card p-4 mt-4">
+          <h2 className="text-sm font-bold text-slate-900 mb-2">Geçmiş Analizler</h2>
+          <p className="text-xs text-slate-500 mb-3">Tamamlanmış AI analizleri ve PDF'ler.</p>
+          {historyLoading ? (
+            <p className="text-xs text-slate-400">Yükleniyor...</p>
+          ) : !analysisHistory?.data?.length ? (
+            <p className="text-xs text-slate-400">Henüz analiz geçmişi yok.</p>
+          ) : (
+            <ul className="space-y-2 max-h-64 overflow-y-auto">
+              {analysisHistory.data.map((item: JobStatusResponse) => (
+                <li key={item.id} className="border border-slate-200 rounded-lg p-2 bg-white text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-700 truncate flex-1">
+                      {item.report_id}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm('Bu analizi silmek istediğinize emin misiniz?')) return;
+                        try {
+                          await api.deleteJob(item.id);
+                          queryClient.invalidateQueries({ queryKey: ["analysisHistory"] });
+                        } catch (e) {
+                          alert('Silinemedi: ' + (e instanceof Error ? e.message : 'Hata'));
+                        }
+                      }}
+                      className="text-slate-400 hover:text-red-500 ml-2"
+                      title="Sil"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-slate-400 text-[10px]">
+                      {item.created_at ? new Date(item.created_at).toLocaleDateString('tr-TR') : ''}
+                    </span>
+                  </div>
+                  {item.pdf_path && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => window.open(api.getJobPDF(item.id), '_blank')}
+                        className="btn-primary text-[10px] px-2 py-1 flex items-center gap-1"
+                      >
+                        <PDFIcon className="w-3 h-3" />
+                        PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = `${api.getJobPDF(item.id)}?download=1`;
+                          link.download = `analiz_${item.id}.pdf`;
+                          link.click();
+                        }}
+                        className="btn-outline text-[10px] px-2 py-1"
+                      >
+                        İndir
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}
@@ -423,10 +626,19 @@ export default function ReportsPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      onClick={() => handleDownloadLastExport(r)}
+                      className="btn-ghost text-sm text-slate-600"
+                      title="Yerelde saklanan son CSV/ZIP (Meta API çağrısı yok)"
+                    >
+                      Son oluşturulan CSV&apos;yi indir
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleStartExport(r)}
                       className="btn-outline text-sm"
+                      title="Meta API ile yeniden oluştur"
                     >
-                      CSV İndir
+                      CSV İndir (Yeniden oluştur)
                     </button>
                     <button
                       type="button"
@@ -681,6 +893,24 @@ function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="currentColor" viewBox="0 0 24 24">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  );
+}
+
+function PDFIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6M9 17h3" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v6a2 2 0 002 2h6" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   );
 }

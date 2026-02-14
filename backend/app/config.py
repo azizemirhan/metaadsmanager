@@ -32,6 +32,37 @@ SETTINGS_MASKED_KEYS = frozenset({
     "SMTP_PASSWORD", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_WEBHOOK_VERIFY_TOKEN"
 })
 
+# AI Sağlayıcı ve Model yapılandırması
+AI_PROVIDERS = {
+    "gemini": {
+        "name": "Gemini (Google)",
+        "models": [
+            "gemini-2.5-pro",
+            "gemini-2.5-flash", 
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash"
+        ],
+        "default_model": "gemini-2.5-flash",
+    },
+    "claude": {
+        "name": "Claude (Anthropic)",
+        "models": ["claude-opus-4-5-20251101", "claude-sonnet-4-5-20251101", "claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"],
+        "default_model": "claude-opus-4-5-20251101",
+    },
+    "ollama": {
+        "name": "Ollama (Kendi sunucun)",
+        "models": [],  # Dinamik olarak alınacak
+        "default_model": "llama3.2",
+    },
+    "rule_based": {
+        "name": "Kural Tabanlı (AI yok)",
+        "models": ["default"],
+        "default_model": "default",
+    },
+}
+
 
 def _load_settings_raw() -> dict[str, Any]:
     """settings.json dosyasını oku; yoksa boş dict."""
@@ -71,6 +102,7 @@ def get_settings_for_api(mask_secrets: bool = True) -> dict[str, Any]:
     all_keys = {
         "META_ACCESS_TOKEN", "META_AD_ACCOUNT_ID", "META_APP_ID", "META_APP_SECRET",
         "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "AI_PROVIDER",
+        "AI_MODEL_GEMINI", "AI_MODEL_CLAUDE", "AI_MODEL_OLLAMA",
         "OLLAMA_BASE_URL", "OLLAMA_MODEL",
         "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD",
         "META_AD_ACCOUNT_IDS", "META_AD_ACCOUNT_NAMES",

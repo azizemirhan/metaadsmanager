@@ -7,7 +7,8 @@ import { useAccount } from "./Providers";
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutGridIcon },
   { href: "/campaigns", label: "Kampanyalar", icon: MegaphoneIcon },
-  { href: "/create-ad", label: "Reklam Oluştur", icon: PlusCircleIcon },
+  { href: "/create-ad", label: "Reklam Özeti", icon: PlusCircleIcon },
+  { href: "/ad-summaries", label: "Kayıtlı Özetler", icon: BookmarkIcon },
   { href: "/analytics", label: "Analitik", icon: ChartIcon },
   { href: "/ai-insights", label: "AI Analiz", icon: RobotIcon },
   { href: "/reports", label: "Raporlar", icon: DocumentIcon },
@@ -147,6 +148,14 @@ function RobotIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function BookmarkIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
     </svg>
   );
 }

@@ -1,0 +1,246 @@
+﻿* Davranışlar
+   * Alışveriş davranışı
+      * Etkileşimdeki Müşteriler (Büyüklük: 988,297,626 - 1,162,238,009)
+   * Davranışlar
+      * Mobile Device User
+         * All Mobile Devices by Operating System
+            * Facebook access (mobile)
+               * Yakınlarda Saptanan Cihazlar (Büyüklük: 928,811,724 - 1,092,282,588)
+            * Facebook access (mobile)
+               * Yakınlarda Tespit Edilen Iphone 14 Cihazları (Büyüklük: 23,767,281 - 27,950,323)
+   * Digital activitiesTeam
+      * Müzik içeriği üreticileri (Büyüklük: 640,234 - 752,916)
+   * Dijital hareketler
+      * Facebook Gaming'i ziyaret eden kişiler (Büyüklük: 10,892,668 - 12,809,778)
+      * Facebook Lite uygulama kullanıcıları (Büyüklük: 351,368,939 - 413,209,873)
+      * Facebook erişimi: daha eski cihaz ve işletim sistemleri (Büyüklük: 555,240,339 - 652,962,639)
+      * Facebook page admins
+         * Facebook Sayfa yöneticileri (Büyüklük: 980,051,806 - 1,152,540,924)
+         * Perakende sayfası yöneticileri (Büyüklük: 16,941,131 - 19,922,771)
+         * Sağlık ve Güzellik sayfası yöneticileri (Büyüklük: 28,027,083 - 32,959,850)
+         * Seyahat ve Turizm sayfa yöneticileri (Büyüklük: 29,553,333 - 34,754,720)
+         * Spor sayfası yöneticileri (Büyüklük: 11,646,308 - 13,696,059)
+         * Topluluk ve Kulüp sayfası yöneticileri (Büyüklük: 20,241,038 - 23,803,461)
+         * Yemek ve Restoran sayfası yöneticileri (Büyüklük: 3,272,418 - 3,848,364)
+         * Yeni Sayfa Yöneticileri (Büyüklük: 658,663,395 - 774,588,153)
+         * İşletme sayfası yöneticileri (Büyüklük: 56,895,215 - 66,908,774)
+      * Facebook Ödemeler kullanıcıları (30 gün) (Büyüklük: 292,659 - 344,168)
+      * Facebook Ödemeler kullanıcıları (90 gün) (Büyüklük: 647,725 - 761,725)
+      * Instagram Business Profili Yöneticileri (Büyüklük: 89,509,194 - 105,262,813)
+      * Kanvas Oyunu
+         * Kanvas oyunları oynayanlar (dün) (Büyüklük: 1,765,582 - 2,076,325)
+         * Kanvas oyunları oynayanlar (son 14 gün) (Büyüklük: 2,869,950 - 3,375,062)
+         * Kanvas oyunları oynayanlar (son 3 gün) (Büyüklük: 2,167,514 - 2,548,997)
+         * Kanvas oyunları oynayanlar (son 7 gün) (Büyüklük: 2,506,995 - 2,948,227)
+      * Konsol oyunları oynayanlar (Büyüklük: 67,330,143 - 79,180,249)
+      * Kullanılan İnternet Tarayıcısı
+         * Facebook erişimi (tarayıcı): Microsoft Edge (Büyüklük: 36,557,126 - 42,991,181)
+         * Facebook erişimi (tarayıcı): Chrome (Büyüklük: 235,591,879 - 277,056,050)
+         * Facebook erişimi (tarayıcı): Firefox (Büyüklük: 11,509,310 - 13,534,949)
+         * Facebook erişimi (tarayıcı): Internet Explorer (Büyüklük: 10,722 - 12,610)
+         * Facebook erişimi (tarayıcı): Opera (Büyüklük: 3,295,443 - 3,875,441)
+         * Facebook erişimi (tarayıcı): Safari (Büyüklük: 43,785,960 - 51,492,290)
+      * Kullanılan İşletim Sistemi
+         * Facebook erişimi (İşletim Sistemi): Windows 10 (Büyüklük: 53,110 - 62,458)
+         * Facebook erişimi (İşletim sistemi) Mac OS X (Büyüklük: 375,603 - 441,710)
+         * Facebook erişimi (İşletim Sistemi): Mac Sierra (Büyüklük: 870,632 - 1,023,864)
+         * Facebook erişimi (İşletim Sistemi): Windows 7 (Büyüklük: 1000'den az)
+         * Facebook erişimi (İşletim Sistemi): Windows 8 (Büyüklük: 5,623 - 6,613)
+         * Facebook erişimi (İşletim Sistemi): Windows Vista (Büyüklük: 1000'den az)
+         * Facebook erişimi (İşletim sistemi): Windows XP (Büyüklük: 1000'den az)
+      * Küçük işletme sahipleri (Büyüklük: 53,092,983 - 62,437,349)
+      * Mağaza yöneticileri (Büyüklük: 1,083,964 - 1,274,742)
+      * Sağlık ve sıhhat içeriği üreticileri (Büyüklük: 132,761 - 156,128)
+      * Seyahat ve açık hava içeriği üreticileri (Büyüklük: 325,195 - 382,430)
+      * Teknolojiyi erken benimseyenler (Büyüklük: 64,605,255 - 75,975,780)
+      * Tüm içerik üreticiler (Büyüklük: 4,484,684 - 5,273,989)
+      * Yeni Aktif İşletme (< 12 ay) (Büyüklük: 34,382,902 - 40,434,293)
+      * Yeni Aktif İşletme (< 24 ay) (Büyüklük: 49,588,788 - 58,316,415)
+      * Yeni Aktif İşletme (< 6 ay) (Büyüklük: 25,445,454 - 29,923,854)
+      * Yiyecek ve içecek içeriği üreticileri (Büyüklük: 464,568 - 546,333)
+      * İnternet ünlüsü içeriği üreticileri (Büyüklük: 2,287,450 - 2,690,042)
+   * Diğer Kategoriler
+      * Pazarlama API'si geliştiricileri (son 90 gün) (Büyüklük: 11,289 - 13,277)
+      * Yaklaşan Etkinliklere Gitmeyi Düşünenler (Büyüklük: 8,779,285 - 10,324,440)
+   * Mobil Cihaz Kullanıcısı
+      * Android: 360 derece medya desteği (Büyüklük: 1,605,074,699 - 1,887,567,847)
+      * Android: 360 derece medya desteği olmayanlar (Büyüklük: 832,498 - 979,018)
+      * Ağ Bağlantısı
+         * Facebook erişimi (ağ türü): 2G (Büyüklük: 7,861,588 - 9,245,228)
+         * Facebook erişimi (ağ türü): 3G (Büyüklük: 70,187,971 - 82,541,054)
+         * Facebook erişimi (ağ türü): 4G (Büyüklük: 993,126,471 - 1,167,916,731)
+         * Facebook erişimi (ağ türü): Wi-Fi (Büyüklük: 1,385,276,223 - 1,629,084,839)
+      * Facebook erişimi (mobil): Akıllı telefonlar ve tabletler (Büyüklük: 2,586,879,065 - 3,042,169,781)
+      * Facebook erişimi (mobil): Klasik cep telefonları (Büyüklük: 1,101,372 - 1,295,214)
+      * Facebook erişimi (mobil): Tabletler (Büyüklük: 2,464,992,869 - 2,898,831,614)
+      * Facebook erişimi (mobil): tüm mobil cihazlar (Büyüklük: 3,729,593,363 - 4,386,001,796)
+      * Markaya Göre Tüm Mobil Cihazlar
+         * Amazon
+         * Apple
+         * Facebook erişimi (mobil): HTC Android mobil cihazlar (Büyüklük: 553,594 - 651,027)
+         * Facebook erişimi (mobil): LG Android mobil cihazları (Büyüklük: 6,351,201 - 7,469,013)
+         * Facebook erişimi (mobil): Motorola Android mobil cih... (Büyüklük: 125,925,955 - 148,088,924)
+         * Facebook erişimi (mobil): Sony Android mobil cihazlar (Büyüklük: 5,345,482 - 6,286,288)
+         * Google
+         * HTC
+         * LG
+         * Sahip Olduğu Cihaz: ZTE (Büyüklük: 15,443,352 - 18,161,383)
+         * Sahip olduğu cihaz: Huawei (Büyüklük: 55,058,760 - 64,749,102)
+         * Sahip olduğu cihaz: Karbonn (Büyüklük: 60,273 - 70,882)
+         * Sahip olduğu cihaz: Micromax (Büyüklük: 454,243 - 534,190)
+         * Sahip olduğu cihaz: Tecno (Büyüklük: 133,078,758 - 156,500,620)
+         * Sahip olduğu cihaz: Alcatel (Büyüklük: 1,681,324 - 1,977,238)
+         * Sahip olduğu cihaz: Cherry Mobile (Büyüklük: 76,255 - 89,676)
+         * Sahip olduğu cihaz: Oppo (Büyüklük: 284,610,120 - 334,701,502)
+         * Sahip olduğu cihaz: VIVO cihazları (Büyüklük: 306,020,944 - 359,880,631)
+         * Sahip olduğu cihaz: Xiaomi (Büyüklük: 24,923,692 - 29,310,262)
+         * Samsung
+         * Sony
+      * Yeni akıllı telefon ve tablet kullanıcıları (Büyüklük: 86,706,833 - 101,967,236)
+      * İşletim Sistemine Göre Tüm Mobil Cihazlar
+   * Mobil Cihaz Kullanıcısı/Cihaz Kullanım Süresi
+      * Bir mobil cihaz kullanan (1 aydan daha az) (Büyüklük: 86,708,882 - 101,969,646)
+      * Bir mobil cihaz kullanan (1-3 ay) (Büyüklük: 130,408,289 - 153,360,149)
+      * Bir mobil cihaz kullanan (10-12 ay) (Büyüklük: 118,461,055 - 139,310,201)
+      * Bir mobil cihaz kullanan (13-18 ay) (Büyüklük: 209,542,192 - 246,421,618)
+      * Bir mobil cihaz kullanan (19-24 ay) (Büyüklük: 174,045,807 - 204,677,870)
+      * Bir mobil cihaz kullanan (25 ay+) (Büyüklük: 669,527,833 - 787,364,732)
+      * Bir mobil cihaz kullanan (4-6 ay) (Büyüklük: 159,842,727 - 187,975,047)
+      * Bir mobil cihaz kullanan (7-9 ay) (Büyüklük: 144,962,149 - 170,475,488)
+   * Seyahat
+      * 1 hafta önce seyahatten dönenler (Büyüklük: 201,808,178 - 237,326,418)
+      * 2 hafta önce seyahatten dönenler (Büyüklük: 310,732,903 - 365,421,895)
+      * Evden İşe Yolculuk Edenler (Büyüklük: 189,767,292 - 223,166,336)
+      * Sık Seyahat Edenler (Büyüklük: 2,547,308,244 - 2,995,634,496)
+      * Yurtdışına sık seyahat edenler (Büyüklük: 1,110,404,801 - 1,305,836,047)
+   * Soccer
+      * Futbol hayranları (orta düzeyde içerik etkileşimi) (Büyüklük: 135,736,987 - 159,626,697)
+      * Futbol hayranları (yüksek düzeyde içerik etkileşimi) (Büyüklük: 14,070,107 - 16,546,447)
+      * Futbol hayranlarının yakın arkadaşları (Büyüklük: 2,420,950,344 - 2,847,037,605)
+   * Tüketici Sınıflandırması
+      * Arjantin
+         * Arjantin'de orta ve yüksek değerdeki ürünleri tercih ed...
+         * Arjantin'de yüksek değerdeki ürünleri tercih eden kişiler
+      * Brezilya
+         * Brezilya'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Brezilya'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Endonezya
+         * Endonezya'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Endonezya'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Güney Afrika
+         * Güney Afrika'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Güney Afrika'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Hindistan
+         * Hindistan'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Hindistan'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Kingdom of Saudi Arabia
+         * Kingdom of Saudi Arabia'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Kingdom of Saudi Arabia'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Malaysia
+         * Malaysia'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Malaysia'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Meksika
+         * Meksika'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Meksika'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Pakistan
+         * Pakistan'da orta ve yüksek değerdeki ürünleri tercih ed...
+         * Pakistan'da yüksek değerdeki ürünleri tercih eden kişiler
+      * Philippines
+         * Philippines'de orta ve yüksek değerdeki ürünleri tercih ed...
+         * Philippines'de yüksek değerdeki ürünleri tercih eden kişiler
+      * Türkiye
+         * Türkiye'de orta ve yüksek değerdeki ürünleri tercih ed... (Büyüklük: 8,750,741 - 10,290,872)
+         * Türkiye'de yüksek değerdeki ürünleri tercih eden kişiler (Büyüklük: 2,195,164 - 2,581,514)
+      * UAE
+         * UAE'de orta ve yüksek değerdeki ürünleri tercih ed...
+         * UAE'de yüksek değerdeki ürünleri tercih eden kişiler
+      * Şili
+         * Şili'de orta ve yüksek değerdeki ürünleri tercih ed...
+         * Şili'de yüksek değerdeki ürünleri tercih eden kişiler
+   * Yurtdışında Yaşayanlar
+      *       * Almanya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 2,767,380 - 3,254,439)
+      * Amerika Birleşik Devletleri'nde yaşamış olanlar (Önce... (Büyüklük: 24,608,826 - 28,939,980)
+      * Arjantin'de Yaşamış Olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 1,861,220 - 2,188,795)
+      * Avustralya'da yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 2,024,556 - 2,380,878)
+      * Avusturya'da yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 217,589 - 255,885)
+      * BAE'de yaşamış olanlar (Önceki Adı: Yurtdışında Yaşa... (Büyüklük: 2,443,180 - 2,873,180)
+      * Bangladeş'te yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 10,003,296 - 11,763,877)
+      * Belçika'da Yaşamış Olanlar (Önceki Adı: Yurtdışında Y... (Büyüklük: 518,707 - 610,000)
+      * Brezilya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 6,056,055 - 7,121,921)
+      * Dominik Cumhuriyeti'nde yaşamış olanlar (Önceki Adı... (Büyüklük: 1,966,135 - 2,312,175)
+      * El Salvador'da Yaşamış Olanlar (Önceki Adı: Yurtdışın... (Büyüklük: 1,935,306 - 2,275,920)
+      * Endonezya'da yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 7,726,595 - 9,086,476)
+      * Estonya'da Yaşamış Olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 118,615 - 139,492)
+      * Etiyopya'da Yaşamış Olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 1,688,814 - 1,986,046)
+      * Fas'ta yaşamış olanlar (Önceki Adı: Yurtdışında Yaşay... (Büyüklük: 3,101,926 - 3,647,866)
+      * Fildişi Sahili'nde yaşamış olanlar (Önceki Adı: Yurtdış... (Büyüklük: 922,253 - 1,084,570)
+      * Filipinler'de Yaşamış Olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 12,967,540 - 15,249,828)
+      * Finlandiya'da Yaşamış Olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 162,857 - 191,521)
+      * Fransa'da yaşamış olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 3,462,730 - 4,072,171)
+      * Gana'da yaşamış olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 1,057,666 - 1,243,816)
+      * Guetamala'da yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 2,860,602 - 3,364,068)
+      * Güney Afrika'da Yaşamış Olanlar (Önceki Adı: Yurtdışı... (Büyüklük: 2,083,907 - 2,450,675)
+      * Güney Kore'de yaşamış olanlar (Önceki Adı: Yurtdışın... (Büyüklük: 4,709,156 - 5,537,968)
+      * Haiti'de Yaşamış Olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 2,010,382 - 2,364,210)
+      * Hindistan'da Yaşamış Olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 19,979,066 - 23,495,382)
+      * Hollanda'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 688,801 - 810,030)
+      * Honduras'da yaşamış olanlar (Önceki Adı: Yurtdışında... (Büyüklük: 2,233,626 - 2,626,745)
+      * Hong Kong'da yaşamış olanlar (Önceki Adı: Yurtdışın... (Büyüklük: 1,056,977 - 1,243,005)
+      * Jamaika'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 920,142 - 1,082,088)
+      * Japonya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 2,082,122 - 2,448,576)
+      * Kamerun'da Yaşamış Olanlar (Önceki Adı: Yurtdışında... (Büyüklük: 752,789 - 885,280)
+      * Kanada'da Yaşamış Olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 1,678,815 - 1,974,287)
+      * Katar'da yaşamış olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 166,141 - 195,382)
+      * Kenya'da Yaşamış Olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 2,279,923 - 2,681,190)
+      * Kolombiya'da yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 4,322,091 - 5,082,780)
+      * Kongo Demokratik Cumhuriyeti'nde yaşamış olanlar (... (Büyüklük: 3,100,982 - 3,646,756)
+      * Kuveyt'te yaşamış olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 204,736 - 240,770)
+      * Küba'da Yaşamış Olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 2,438,677 - 2,867,885)
+      * Kıbrıs'ta yaşamış olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 167,792 - 197,324)
+      * Letonya'da Yaşamış Olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 228,556 - 268,782)
+      * Litvanya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 355,142 - 417,647)
+      * Lübnan'da yaşamış olanlar (Önceki Adı: Yurtdışında Y... (Büyüklük: 1,002,377 - 1,178,796)
+      * Lüksemburg'da yaşamış olanlar (Önceki Adı: Yurtdışı... (Büyüklük: 47,170 - 55,472)
+      * Macaristan'da yaşamış olanlar (Önceki Adı: Yurtdışın... (Büyüklük: 521,488 - 613,271)
+      * Malezya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 2,515,425 - 2,958,140)
+      * Malta'da Yaşamış Olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 49,709 - 58,458)
+      * Meksika'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 15,720,989 - 18,487,884)
+      * Monako'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 38,789 - 45,617)
+      * Norveç'te yaşamış olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 256,315 - 301,427)
+      * Peru'da yaşamış olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 2,483,891 - 2,921,056)
+      * Polonya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 2,150,232 - 2,528,673)
+      * Portekiz'de yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 1,511,120 - 1,777,078)
+      * Porto Riko'da yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 1,472,860 - 1,732,084)
+      * Ruanda'da yaşamış olanlar (Önceki Adı: Yurtdışında Y... (Büyüklük: 190,187 - 223,660)
+      * Rusya'da yaşamış olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 1,753,442 - 2,062,048)
+      * Senegal'de yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 719,232 - 845,817)
+      * Sierra Leone'de Yaşamış Olanlar (Önceki Adı: Yurtdışı... (Büyüklük: 330,706 - 388,811)
+      * Singapur'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 113,849 - 133,887)
+      * Slovakya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 387,391 - 455,572)
+      * Slovenya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 81,649 - 96,020)
+      * Sri Lanka'da yaşamış olanlar (Önceki Adı: Yurtdışında... (Büyüklük: 1,591,117 - 1,871,154)
+      * Suudi Arabistan'da yaşamış olanlar (Önceki Adı: Yurtd... (Büyüklük: 1,684,034 - 1,980,425)
+      * Sırbistan'da Yaşamış Olanlar (Önceki Adı: Yurtdışında... (Büyüklük: 829,193 - 975,131)
+      * Tanzanya'da Yaşamış Olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 692,261 - 814,099)
+      * Tayland'da yaşamış olanlar (Önceki Adı: Yurtdışında Y... (Büyüklük: 2,718,034 - 3,196,409)
+      * Uganda'da yaşamış olanlar (Önceki Adı: Yurtdışında Y... (Büyüklük: 789,967 - 929,002)
+      * Venezuela'da Yaşamış Olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 7,021,358 - 8,257,118)
+      * Vietnam'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 6,229,688 - 7,326,114)
+      * Yurt dışında yaşayanlar (Büyüklük: 302,265,304 - 355,463,998)
+      * Yurtdışında yaşamış olanların aileleri (Büyüklük: 45,298,750 - 53,271,331)
+      * Yurtdışında yaşayan kişilerin arkadaşları (Büyüklük: 2,521,442,376 - 2,965,216,235)
+      * Zambiya'da yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 319,335 - 375,539)
+      * Zimbabve'de yaşamış olanlar (Önceki Adı: Yurtdışınd... (Büyüklük: 1,872,153 - 2,201,653)
+      * Çek Cumhuriyeti'nde yaşamış olanlar (Önceki Adı: Yur... (Büyüklük: 327,653 - 385,321)
+      * Çin'de yaşamış olanlar (Önceki Adı: Yurtdışında Yaşay... (Büyüklük: 2,805,261 - 3,298,987)
+      * Ürdün'de yaşamış olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 965,886 - 1,135,882)
+      * İngiltere'de yaşamış olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 8,663,346 - 10,188,095)
+      * İrlanda'da yaşamış olanlar (Önceki Adı: Yurtdışında Y... (Büyüklük: 447,615 - 526,396)
+      * İspanya'da Yaşamış Olanlar (Önceki Adı: Yurtdışında ... (Büyüklük: 2,399,197 - 2,821,456)
+      * İsrail'de yaşamış olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 718,470 - 844,921)
+      * İsveç'te Yaşamış Olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 383,619 - 451,137)
+      * İsviçre'de yaşamış olanlar (Önceki Adı: Yurtdışında Ya... (Büyüklük: 462,913 - 544,386)
+      * İtalya'da yaşamış olanlar (Önceki Adı: Yurtdışında Yaş... (Büyüklük: 2,469,319 - 2,903,920)
+      * Şili'de Yaşamış Olanlar (Önceki Adı: Yurtdışında Yaşa... (Büyüklük: 758,909 - 892,478)
+   * Yıldönümü
+      * Yıldönümleri 61-90 Gün içinde olanlar (Büyüklük: 7,120,328 - 8,373,506)

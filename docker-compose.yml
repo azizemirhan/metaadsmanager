@@ -45,10 +45,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://metaads:metaads@postgres:5432/metaads
       REPORTS_CSV_DIR: /app/data/reports
+      TARGETING_FILES_DIR: /project
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
       - ./backend:/app
+      - .:/project
       - reports_csv_data:/app/data/reports
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:

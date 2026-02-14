@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from "recharts";
 import { api, Campaign } from "./lib/api";
@@ -79,6 +79,9 @@ export default function DashboardPage() {
 
   // Top 5 campaigns by spend
   const topCampaigns = [...campaigns].sort((a, b) => Number(b.spend ?? 0) - Number(a.spend ?? 0)).slice(0, 5);
+
+  // Tıklama grafiği için sağ eksen domain (görünürlük)
+  const maxClicks = daily.length ? Math.max(...daily.map((d: { clicks?: number }) => Number(d.clicks ?? 0)), 1) : 10;
 
   const handleExport = async () => {
     setExportLoading(true);
@@ -338,6 +341,7 @@ export default function DashboardPage() {
                 <YAxis 
                   yAxisId="right" 
                   orientation="right" 
+                  domain={[0, Math.ceil(maxClicks * 1.15) || 10]}
                   tick={{ fill: "#64748b", fontSize: 11 }} 
                   tickLine={false} 
                   axisLine={false}
@@ -361,14 +365,16 @@ export default function DashboardPage() {
                   fill="url(#spendGrad)" 
                   name="Harcama (₺)" 
                 />
-                <Area 
+                <Line 
                   yAxisId="right" 
                   type="monotone" 
                   dataKey="clicks" 
                   stroke="#10b981" 
-                  strokeWidth={2}
-                  fill="url(#clicksGrad)" 
-                  name="Tıklama" 
+                  strokeWidth={2.5}
+                  dot={{ fill: "#10b981", strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
+                  name="Tıklama"
+                  isAnimationActive={true}
                 />
               </AreaChart>
             </ResponsiveContainer>

@@ -51,10 +51,16 @@ Her analizde şu formatta yanıt ver:
 
 
 # --- Gemini ---
+def _get_gemini_model() -> str:
+    """Kullanıcının seçtiği Gemini modelini veya varsayılanı döndür."""
+    return config.get_setting("AI_MODEL_GEMINI") or config.AI_PROVIDERS["gemini"]["default_model"]
+
+
 def _gemini_analyze_campaigns(campaigns_data: list[dict]) -> str:
     import google.generativeai as genai
     genai.configure(api_key=config.get_setting("GEMINI_API_KEY") or "")
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model_name = _get_gemini_model()
+    model = genai.GenerativeModel(model_name)
     summary = []
     for c in campaigns_data[:20]:
         summary.append({
@@ -85,7 +91,8 @@ Toplam {len(campaigns_data)} kampanya var. Lütfen kapsamlı bir analiz yap."""
 def _gemini_analyze_single(campaign: dict) -> str:
     import google.generativeai as genai
     genai.configure(api_key=config.get_setting("GEMINI_API_KEY") or "")
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model_name = _get_gemini_model()
+    model = genai.GenerativeModel(model_name)
     prompt = f"""{SYSTEM_PROMPT}
 
 Bu kampanyayı derinlemesine analiz et (Türkçe):
@@ -111,7 +118,8 @@ Bu kampanya için özel optimizasyon önerileri ver."""
 def _gemini_weekly_report(data: dict) -> str:
     import google.generativeai as genai
     genai.configure(api_key=config.get_setting("GEMINI_API_KEY") or "")
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model_name = _get_gemini_model()
+    model = genai.GenerativeModel(model_name)
     prompt = f"""Sen bir Meta Ads raporlama uzmanısın. Haftalık performans raporlarını profesyonel ve anlaşılır şekilde özetliyorsun (Türkçe).
 
 Bu haftalık verilere göre yöneticiye göndermek için kısa ve öz bir rapor yaz:
@@ -130,9 +138,15 @@ HTML formatında yaz (e-posta için)."""
 
 
 # --- Claude ---
+def _get_claude_model() -> str:
+    """Kullanıcının seçtiği Claude modelini veya varsayılanı döndür."""
+    return config.get_setting("AI_MODEL_CLAUDE") or config.AI_PROVIDERS["claude"]["default_model"]
+
+
 def _claude_analyze_campaigns(campaigns_data: list[dict]) -> str:
     import anthropic
     client = anthropic.Anthropic(api_key=config.get_setting("ANTHROPIC_API_KEY") or "")
+    model_name = _get_claude_model()
     summary = []
     for c in campaigns_data[:20]:
         summary.append({
@@ -150,7 +164,7 @@ def _claude_analyze_campaigns(campaigns_data: list[dict]) -> str:
             "conversions": c.get("conversions", 0),
         })
     message = client.messages.create(
-        model="claude-opus-4-5-20251101",
+        model=model_name,
         max_tokens=2000,
         system=SYSTEM_PROMPT,
         messages=[{
@@ -164,8 +178,9 @@ def _claude_analyze_campaigns(campaigns_data: list[dict]) -> str:
 def _claude_analyze_single(campaign: dict) -> str:
     import anthropic
     client = anthropic.Anthropic(api_key=config.get_setting("ANTHROPIC_API_KEY") or "")
+    model_name = _get_claude_model()
     message = client.messages.create(
-        model="claude-opus-4-5-20251101",
+        model=model_name,
         max_tokens=1500,
         system=SYSTEM_PROMPT,
         messages=[{
@@ -179,8 +194,9 @@ def _claude_analyze_single(campaign: dict) -> str:
 def _claude_weekly_report(data: dict) -> str:
     import anthropic
     client = anthropic.Anthropic(api_key=config.get_setting("ANTHROPIC_API_KEY") or "")
+    model_name = _get_claude_model()
     message = client.messages.create(
-        model="claude-opus-4-5-20251101",
+        model=model_name,
         max_tokens=1500,
         system="Sen bir Meta Ads raporlama uzmanısın. Haftalık performans raporlarını profesyonel ve anlaşılır şekilde özetliyorsun.",
         messages=[{
@@ -192,9 +208,14 @@ def _claude_weekly_report(data: dict) -> str:
 
 
 # --- Ollama (self-hosted LLM) ---
+def _get_ollama_model() -> str:
+    """Kullanıcının seçtiği Ollama modelini veya varsayılanı döndür."""
+    return config.get_setting("AI_MODEL_OLLAMA") or config.get_setting("OLLAMA_MODEL") or config.AI_PROVIDERS["ollama"]["default_model"]
+
+
 def _ollama_generate(prompt: str, system: str = "") -> str:
     base = (config.get_setting("OLLAMA_BASE_URL") or "http://localhost:11434").rstrip("/")
-    model = config.get_setting("OLLAMA_MODEL") or "llama3.2"
+    model = _get_ollama_model()
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
     try:
         with httpx.Client(timeout=120.0) as client:
@@ -405,7 +426,8 @@ Türkçe olarak: 1) Özet bulgular 2) En iyi / en zayıf performans 3) Somut ön
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            model_name = _get_gemini_model()
+            model = genai.GenerativeModel(model_name)
             response = model.generate_content(prompt_common + "\n\nVeri:\n" + data_str)
             if response.candidates:
                 part = response.candidates[0].content.parts[0] if response.candidates[0].content.parts else None
@@ -420,7 +442,7 @@ Türkçe olarak: 1) Özet bulgular 2) En iyi / en zayıf performans 3) Somut ön
                         import anthropic
                         client = anthropic.Anthropic(api_key=anthropic_key)
                         message = client.messages.create(
-                            model="claude-opus-4-5-20251101",
+                            model=_get_claude_model(),
                             max_tokens=2000,
                             system="Sen bir Meta Ads veri analisti olarak rapor verisini Türkçe özetliyorsun ve öneri veriyorsun.",
                             messages=[{"role": "user", "content": prompt_common + "\n\nVeri:\n" + data_str}],
@@ -443,3 +465,183 @@ Türkçe olarak: 1) Özet bulgular 2) En iyi / en zayıf performans 3) Somut ön
 async def analyze_report_data(report_name: str, template_title: str, rows: list[dict], columns: list) -> str:
     """Rapor verisini async olarak AI ile analiz ettirir."""
     return await asyncio.to_thread(_analyze_report_data_sync, report_name, template_title, rows, columns)
+
+
+# --- Reklam özeti AI ile oluşturma ---
+AD_SUMMARY_JSON_SCHEMA = """
+{
+  "campaignName": "string",
+  "campaignObjective": "OUTCOME_AWARENESS | OUTCOME_TRAFFIC | OUTCOME_ENGAGEMENT | OUTCOME_LEADS | OUTCOME_SALES | OUTCOME_APP_PROMOTION | LINK_CLICKS | CONVERSIONS",
+  "budgetStrategy": "campaign | adset",
+  "budgetSharing": true,
+  "bidStrategy": "highest_volume | lowest_cost | cost_cap",
+  "abTestEnabled": false,
+  "specialAdCategory": "" | "credit" | "employment" | "housing" | "social" | "politics",
+  "adsetName": "string",
+  "dailyBudget": 10000,
+  "performanceGoal": "string",
+  "conversionGoal": "MESSAGES | WEBSITE | CALLS | APP | PROFILE",
+  "platforms": ["facebook", "instagram"],
+  "placementsAuto": true,
+  "location": "Türkiye",
+  "ageMin": 18,
+  "ageMax": 65,
+  "gender": "all | male | female",
+  "selectedDemographics": [],
+  "selectedInterests": [],
+  "selectedBehaviors": [],
+  "targetingLogicWithin": "or | and",
+  "targetingLogicBetween": "and | or",
+  "creativeName": "string",
+  "primaryText": "string",
+  "headline": "string",
+  "link": "https://...",
+  "cta": "LEARN_MORE | SHOP_NOW | SIGN_UP | CONTACT_US | MESSAGE | CALL_NOW",
+  "adName": "string",
+  "welcomeMessage": "string",
+  "faqQuestions": [{"q": "string", "a": "string"}]
+}
+"""
+
+
+def _format_targeting_for_prompt(options: dict) -> str:
+    """Hedef kitle seçeneklerini prompt için metne dönüştürür."""
+    parts = []
+    for cat, key in [("Demografik Bilgiler", "demographics"), ("İlgi Alanları", "interests"), ("Davranışlar", "behaviors")]:
+        items = options.get(key) or []
+        labels = [x.get("label", "").strip() for x in items if x.get("label") and "Kullanılamıyor" not in str(x.get("size", ""))]
+        if labels:
+            parts.append(f"### {cat} (sadece bu etiketlerden seç, aynen kopyala):\n" + "\n".join(f"- {l}" for l in labels[:300]))
+        else:
+            parts.append(f"### {cat}: (boş)")
+    return "\n\n".join(parts)
+
+
+def _generate_ad_summary_sync(
+    user_context: str, analysis_texts: str, image_base64: str | None, targeting_options: dict | None = None
+) -> dict:
+    """Kullanıcı bağlamı ve rapor analizlerine göre reklam özeti JSON oluşturur."""
+    targeting_block = ""
+    if targeting_options:
+        targeting_block = f"""
+## MEVCUT HEDEF KITLE SEÇENEKLERİ (ZORUNLU - SADECE BUNLARDAN SEÇ):
+Aşağıdaki listeler Meta - Demografik Bilgiler, İlgi Alanları ve Davranışlar dosyalarından alınmıştır.
+selectedDemographics, selectedInterests, selectedBehaviors alanları için MUTLAKA bu listelerdeki etiketlerden seç.
+Etiketleri BİREBİR, virgül/nokta farkı olmadan kopyala. Listede olmayan bir etiket ASLA yazma.
+
+{_format_targeting_for_prompt(targeting_options)}
+"""
+
+    prompt = f"""Sen bir Meta Ads (Facebook & Instagram) uzmanısın. Kullanıcının reklam çıkacağı ürün/hizmet bilgisi ve mevcut performans raporlarına dayanarak eksiksiz, kaliteli bir reklam özeti oluştur.
+
+## KULLANICI BAĞLAMI (Reklam çıkacağı ürün/hizmet):
+{user_context}
+
+## PERFORMANS RAPORLARI (Meta Ads analizleri):
+{analysis_texts or "Rapor verisi yok."}
+{targeting_block}
+
+## GÖREV:
+1. Kullanıcı bağlamı ve rapor verilerini dikkatlice analiz et.
+2. Hedef kitle için: SADECE yukarıdaki mevcut hedef kitle listelerinden en uygun seçenekleri seç. Ürün/hizmete ve rapordaki performans verilerine göre kaliteli araştırma yap.
+3. Her kategori için 2-6 arası en alakalı öğe seç (çok fazla seçim hedef kitleyi daraltır, çok az seçim ise yetersiz olur).
+4. Sadece geçerli JSON döndür, başka metin ekleme.
+
+## ÇIKTI ŞEMASI (bu formatta JSON döndür):
+{AD_SUMMARY_JSON_SCHEMA}
+
+## KURALLAR:
+- campaignObjective: Etkileşim reklamı için OUTCOME_ENGAGEMENT
+- conversionGoal: Mesaj/sohbet için MESSAGES, web trafiği için WEBSITE, arama için CALLS
+- dailyBudget: kuruş (örn. 10000 = 100 TL)
+- selectedDemographics, selectedInterests, selectedBehaviors: SADECE yukarıdaki listelerden, etiketleri BİREBİR kopyala
+- primaryText: Reklam metni, ürün/hizmete uygun, çekici, max 125 karakter
+- headline: Kısa başlık
+- cta: MESSAGE (sohbet), CALL_NOW (arama), LEARN_MORE (web)
+- Tüm string değerler Türkçe"""
+
+    provider = _ai_provider()
+    anthropic_key = config.get_setting("ANTHROPIC_API_KEY") or ""
+    gemini_key = config.get_setting("GEMINI_API_KEY") or ""
+
+    # Claude (resim destekli)
+    if anthropic_key and provider != "gemini":
+        try:
+            import anthropic
+            import base64
+            client = anthropic.Anthropic(api_key=anthropic_key)
+            content = [{"type": "text", "text": prompt}]
+            if image_base64:
+                try:
+                    content.insert(0, {
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": "image/jpeg", "data": image_base64},
+                    })
+                except Exception:
+                    pass
+            message = client.messages.create(
+                model=_get_claude_model(),
+                max_tokens=4000,
+                system="Sen Meta Ads uzmanısın. Sadece geçerli JSON döndür, başka açıklama yazma.",
+                messages=[{"role": "user", "content": content}],
+            )
+            if message.content and len(message.content) > 0 and hasattr(message.content[0], "text"):
+                text = message.content[0].text.strip()
+                # JSON blokunu çıkar
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0].strip()
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0].strip()
+                return json.loads(text)
+        except Exception as e:
+            if gemini_key:
+                pass  # Gemini'ye düş
+            else:
+                raise ValueError(f"Claude hatası: {e}") from e
+
+    # Gemini (resim destekli)
+    if gemini_key:
+        try:
+            import google.generativeai as genai
+            import base64
+            genai.configure(api_key=gemini_key)
+            model_name = _get_gemini_model()
+            model = genai.GenerativeModel(model_name)
+            parts = [prompt]
+            if image_base64:
+                try:
+                    import PIL.Image
+                    import io
+                    img_data = base64.b64decode(image_base64)
+                    img = PIL.Image.open(io.BytesIO(img_data))
+                    parts.insert(0, img)
+                except Exception:
+                    pass
+            response = model.generate_content(parts)
+            if response.candidates:
+                part = response.candidates[0].content.parts[0] if response.candidates[0].content.parts else None
+                if part and hasattr(part, "text"):
+                    text = part.text.strip()
+                    if "```json" in text:
+                        text = text.split("```json")[1].split("```")[0].strip()
+                    elif "```" in text:
+                        text = text.split("```")[1].split("```")[0].strip()
+                    return json.loads(text)
+        except Exception as e:
+            if anthropic_key:
+                raise ValueError(f"Gemini hatası: {e}") from e
+            raise
+
+    raise ValueError("GEMINI_API_KEY veya ANTHROPIC_API_KEY tanımlı olmalı.")
+
+
+async def generate_ad_summary_from_reports(
+    user_context: str,
+    analysis_texts: str,
+    image_base64: str | None = None,
+    targeting_options: dict | None = None,
+) -> dict:
+    """Rapor analizlerine ve kullanıcı bağlamına göre reklam özeti JSON üretir."""
+    return await asyncio.to_thread(
+        _generate_ad_summary_sync, user_context, analysis_texts, image_base64, targeting_options
+    )

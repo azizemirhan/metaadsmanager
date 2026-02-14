@@ -16,6 +16,7 @@ from app.report_templates import REPORT_TEMPLATES, get_report_data_for_template,
 from app.saved_reports import get_saved_report_by_id_optional
 from app.services.meta_service import meta_service, MetaAPIError
 from app.database import async_session_factory
+from app.pdf_generator import generate_analysis_pdf
 
 # reports router'daki helper
 def _get_report_template_ids(r: dict):
@@ -46,10 +47,22 @@ async def _run_export(report_id: str, job_id: str) -> Tuple[Optional[str], Optio
         def update_progress(progress: int):
             update_job_sync(job_id, progress=progress)
 
+        async def fetch_template_with_retry(tid: str, retries: int = 3) -> list:
+            for attempt in range(retries + 1):
+                try:
+                    return await get_report_data_for_template(tid, days, account_id, meta_service)
+                except MetaAPIError as e:
+                    err_msg = str(e.args[0]) if e.args else ""
+                    is_rate_limit = "limit" in err_msg.lower() or "user request" in err_msg.lower() or "17" in err_msg
+                    if attempt < retries and is_rate_limit:
+                        await asyncio.sleep(120)  # Meta limit sıfırlanması için 2 dk bekle
+                        continue
+                    raise
+
         if len(tids) == 1:
             tid = tids[0]
             await asyncio.get_event_loop().run_in_executor(None, lambda: update_progress(10))
-            rows = await get_report_data_for_template(tid, days, account_id, meta_service)
+            rows = await fetch_template_with_retry(tid)
             columns = get_template_csv_columns(tid)
             if columns:
                 rows = [{k: row.get(k, "") for k in columns} for row in rows]
@@ -62,15 +75,15 @@ async def _run_export(report_id: str, job_id: str) -> Tuple[Optional[str], Optio
             await asyncio.get_event_loop().run_in_executor(None, lambda: update_progress(100))
             return str(out_file), file_name
 
-        # Çoklu şablon -> ZIP
+        # Çoklu şablon -> ZIP (her şablon arasında gecikme; rate limit önlemi)
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for i, tid in enumerate(tids):
                 p = 10 + int((i + 1) / len(tids) * 80)
                 await asyncio.get_event_loop().run_in_executor(None, lambda p=p: update_progress(p))
                 if i > 0:
-                    await asyncio.sleep(2)
-                rows = await get_report_data_for_template(tid, days, account_id, meta_service)
+                    await asyncio.sleep(8)
+                rows = await fetch_template_with_retry(tid)
                 columns = get_template_csv_columns(tid)
                 if columns:
                     rows = [{k: row.get(k, "") for k in columns} for row in rows]
@@ -108,17 +121,19 @@ def export_report_task(self, report_id: str, job_id: str) -> None:
         else:
             update_job_sync(job_id, status="failed", error_message="Dosya oluşturulamadı")
     except MetaAPIError as e:
-        update_job_sync(
-            job_id,
-            status="failed",
-            error_message=str(e.args[0]) if e.args else "Meta API hatası",
-        )
+        err_msg = str(e.args[0]) if e.args else "Meta API hatası"
+        if "limit" in err_msg.lower() or "user request" in err_msg.lower():
+            err_msg = (
+                "Meta API istek limiti aşıldı. 30–60 dakika bekleyip tekrar deneyin. "
+                "Daha önce indirdiyseniz 'Son oluşturulan CSV'yi indir' kullanın."
+            )
+        update_job_sync(job_id, status="failed", error_message=err_msg)
     except Exception as e:
         update_job_sync(job_id, status="failed", error_message=str(e))
 
 
-async def _run_analyze(report_id: str, job_id: str) -> str:
-    """Kayıtlı raporu AI ile analiz eder; sonuç metnini döner."""
+async def _run_analyze(report_id: str, job_id: str) -> tuple[str, Optional[str]]:
+    """Kayıtlı raporu AI ile analiz eder; (sonuç_metni, pdf_yolu) döner."""
     from app.services.ai_service import analyze_report_data
 
     if not async_session_factory:
@@ -170,21 +185,40 @@ async def _run_analyze(report_id: str, job_id: str) -> str:
                 parts.append(f"## {title}\n\n{analysis}")
             except Exception as ae:
                 parts.append(f"## {title}\n\nAnaliz atlandı: {ae!s}")
+        await asyncio.get_event_loop().run_in_executor(None, lambda: update_progress(95))
+        
+        # PDF oluştur
+        result_text = "\n\n---\n\n".join(parts)
+        pdf_path = None
+        try:
+            directory = get_reports_csv_dir()
+            safe_name = "".join(c if c.isalnum() or c in " -_" else "_" for c in report_name)[:80]
+            date_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+            pdf_file = directory / f"{safe_name}_analiz_{date_suffix}.pdf"
+            
+            pdf_result = generate_analysis_pdf(result_text, report_name, pdf_file)
+            if pdf_result:
+                pdf_path = str(pdf_result)
+        except Exception as pdf_err:
+            # PDF oluşturma hatası analizi engellemesin
+            print(f"PDF oluşturma hatası: {pdf_err}")
+        
         await asyncio.get_event_loop().run_in_executor(None, lambda: update_progress(100))
-        return "\n\n---\n\n".join(parts)
+        return result_text, pdf_path
 
 
 @app.task(bind=True, name="app.tasks.analyze_report")
 def analyze_report_task(self, report_id: str, job_id: str) -> None:
-    """Kayıtlı raporu AI ile analiz eder; sonucu job result_text'e yazar."""
+    """Kayıtlı raporu AI ile analiz eder; sonucu job result_text'e ve PDF'e yazar."""
     update_job_sync(job_id, status="running", progress=0)
     try:
-        result_text = asyncio.run(_run_analyze(report_id, job_id))
+        result_text, pdf_path = asyncio.run(_run_analyze(report_id, job_id))
         update_job_sync(
             job_id,
             status="completed",
             progress=100,
             result_text=result_text,
+            pdf_path=pdf_path,
         )
     except MetaAPIError as e:
         update_job_sync(

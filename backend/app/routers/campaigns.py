@@ -27,6 +27,18 @@ def _handle_meta_error(e: Exception):
     raise HTTPException(status_code=503, detail=f"Meta API bağlantı hatası. Ayarlar veya .env dosyasında META_ACCESS_TOKEN ve META_AD_ACCOUNT_ID değerlerini kontrol edin. Detay: {str(e)}")
 
 
+@router.get("/pages")
+async def get_pages():
+    """Facebook sayfaları ve bağlı Instagram hesaplarını döner. Token'da pages_show_list, instagram_basic izinleri gerekir."""
+    try:
+        pages = await meta_service.get_pages_with_instagram()
+        return {"data": pages}
+    except MetaAPIError as e:
+        _handle_meta_error(e)
+    except Exception as e:
+        _handle_meta_error(e)
+
+
 @router.get("/accounts")
 async def get_accounts():
     """Kullanılabilir reklam hesapları listesi (META_AD_ACCOUNT_IDS ve META_AD_ACCOUNT_NAMES veya varsayılan tek hesap)."""

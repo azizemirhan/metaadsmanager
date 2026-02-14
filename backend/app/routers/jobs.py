@@ -77,3 +77,70 @@ async def download_job_result(job_id: str, session: AsyncSession = Depends(get_s
         raise HTTPException(status_code=404, detail="Dosya bulunamadı")
     file_name = row.file_name or path.name
     return FileResponse(path, filename=file_name, media_type="application/octet-stream")
+
+
+@router.get("/{job_id}/pdf")
+async def get_analysis_pdf(job_id: str, session: AsyncSession = Depends(get_session)):
+    """AI analiz işi tamamlandıysa PDF'i indirir veya görüntüler."""
+    result = await session.execute(select(JobStatus).where(JobStatus.id == job_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="İş bulunamadı")
+    if row.job_type != "analyze":
+        raise HTTPException(status_code=400, detail="Bu iş bir analiz işi değil")
+    if row.status != "completed":
+        raise HTTPException(status_code=404, detail="Analiz henüz tamamlanmadı")
+    if not row.pdf_path:
+        raise HTTPException(status_code=404, detail="PDF henüz oluşturulmadı")
+    
+    path = Path(row.pdf_path)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="PDF dosyası bulunamadı")
+    
+    # PDF'i tarayıcıda görüntülemek için inline, indirmek için attachment
+    file_name = path.name
+    return FileResponse(
+        path,
+        filename=file_name,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=\"{file_name}\""}
+    )
+
+
+@router.get("/history/analyze")
+async def get_analysis_history(session: AsyncSession = Depends(get_session)):
+    """Tamamlanmış AI analiz işlemlerini listeler (PDF'ler dahil)."""
+    result = await session.execute(
+        select(JobStatus)
+        .where(JobStatus.job_type == "analyze")
+        .where(JobStatus.status == "completed")
+        .order_by(JobStatus.created_at.desc())
+    )
+    rows = result.scalars().all()
+    return {"data": [job_to_dict(row) for row in rows], "count": len(rows)}
+
+
+@router.delete("/{job_id}")
+async def delete_job(job_id: str, session: AsyncSession = Depends(get_session)):
+    """Job kaydını ve ilgili dosyaları siler."""
+    from pathlib import Path
+    import os
+    
+    result = await session.execute(select(JobStatus).where(JobStatus.id == job_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="İş bulunamadı")
+    
+    # Dosyaları sil (varsa)
+    for file_path in [row.file_path, row.pdf_path]:
+        if file_path:
+            try:
+                Path(file_path).unlink(missing_ok=True)
+            except Exception:
+                pass  # Dosya silinemese de devam et
+    
+    # Veritabanından sil
+    await session.delete(row)
+    await session.commit()
+    
+    return {"message": "Analiz silindi", "job_id": job_id}

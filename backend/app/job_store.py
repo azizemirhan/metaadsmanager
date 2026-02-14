@@ -69,6 +69,7 @@ def update_job_sync(
     result_text: Optional[str] = None,
     file_path: Optional[str] = None,
     file_name: Optional[str] = None,
+    pdf_path: Optional[str] = None,
     error_message: Optional[str] = None,
 ) -> None:
     """Job durumunu günceller (Celery worker sync)."""
@@ -89,6 +90,8 @@ def update_job_sync(
             row.file_path = file_path
         if file_name is not None:
             row.file_name = file_name
+        if pdf_path is not None:
+            row.pdf_path = pdf_path
         if error_message is not None:
             row.error_message = error_message
         row.updated_at = datetime.utcnow()
@@ -111,6 +114,7 @@ def job_to_dict(row: JobStatus) -> dict[str, Any]:
         "result_text": row.result_text,
         "file_path": row.file_path,
         "file_name": row.file_name,
+        "pdf_path": row.pdf_path,
         "error_message": row.error_message,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,

@@ -1,5 +1,7 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Query, HTTPException, Depends
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from datetime import datetime
 import asyncio
 import io
@@ -7,9 +9,11 @@ import uuid
 import zipfile
 from typing import Optional, List
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db_session_optional
+from app.database import get_db_session_optional, get_session
+from app.models import JobStatus
 from app.services.meta_service import meta_service, MetaAPIError
 from app.report_templates import (
     REPORT_TEMPLATES,
@@ -235,6 +239,41 @@ async def get_saved_report_data(
         }
     except MetaAPIError as e:
         raise HTTPException(status_code=503, detail=str(e.args[0]) if e.args else "Meta API hatası.")
+
+
+@router.get("/saved/{report_id}/last-export")
+async def download_last_export(
+    report_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Daha önce oluşturulmuş (yerelde saklanan) son CSV/ZIP'i indirir. Meta API çağrısı yapmaz."""
+    r = await get_saved_report_by_id_optional(session, report_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Rapor bulunamadı.")
+    result = await session.execute(
+        select(JobStatus)
+        .where(JobStatus.report_id == report_id)
+        .where(JobStatus.job_type == "export")
+        .where(JobStatus.status == "completed")
+        .where(JobStatus.file_path.isnot(None))
+        .order_by(JobStatus.created_at.desc())
+        .limit(1)
+    )
+    row = result.scalar_one_or_none()
+    if not row or not row.file_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Bu rapor için henüz CSV oluşturulmamış. Önce 'CSV İndir' ile oluşturun.",
+        )
+    path = Path(row.file_path)
+    if not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Dosya bulunamadı. Lütfen 'CSV İndir' ile yeniden oluşturun.",
+        )
+    file_name = row.file_name or path.name
+    media_type = "application/zip" if file_name.endswith(".zip") else "text/csv"
+    return FileResponse(path, filename=file_name, media_type=media_type)
 
 
 @router.get("/saved/{report_id}/export")

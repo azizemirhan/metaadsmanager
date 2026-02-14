@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException
-from app.routers import campaigns, adsets, reports, ai_analysis, email_reports, settings, creatives, ads, whatsapp, jobs
+from app.routers import campaigns, adsets, reports, ai_analysis, email_reports, settings, creatives, ads, whatsapp, jobs, targeting, ad_summaries
 from app import config
 from app.database import init_db
 
@@ -93,6 +93,8 @@ app.include_router(email_reports.router, prefix="/api/email", tags=["Email Repor
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
 app.include_router(whatsapp.router, prefix="/api/whatsapp", tags=["WhatsApp"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
+app.include_router(targeting.router, prefix="/api/targeting", tags=["Targeting"])
+app.include_router(ad_summaries.router, prefix="/api/ad-summaries", tags=["Ad Summaries"])
 
 
 @app.get("/")

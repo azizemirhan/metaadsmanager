@@ -253,15 +253,22 @@ class MetaAdsService:
         if not _is_meta_configured(aid):
             return []
         # Meta API: platform_position breakdown ile actions/action_values geçersiz kombinasyon
+        # Ayrıca action_breakdowns=[] gerekli, yoksa default action_type eklenir
         if breakdowns == "platform_position":
             fields = "impressions,clicks,spend,reach,ctr,cpc,cpm,frequency"
+            params = {
+                "fields": fields,
+                "time_range": json.dumps(self._date_range(days)),
+                "breakdowns": breakdowns,
+                "action_breakdowns": "[]",
+            }
         else:
             fields = "impressions,clicks,spend,reach,ctr,cpc,cpm,actions,action_values,frequency"
-        params = {
-            "fields": fields,
-            "time_range": json.dumps(self._date_range(days)),
-            "breakdowns": breakdowns,
-        }
+            params = {
+                "fields": fields,
+                "time_range": json.dumps(self._date_range(days)),
+                "breakdowns": breakdowns,
+            }
         if time_increment:
             params["time_increment"] = time_increment
         try:
@@ -486,6 +493,44 @@ class MetaAdsService:
                 err = body.get("error") or {}
                 raise MetaAPIError(err.get("message", str(e)))
             return response.json()
+
+    async def get_pages_with_instagram(self) -> list[dict]:
+        """Kullanıcının erişebildiği Facebook sayfalarını ve bağlı Instagram hesaplarını döner.
+        Token'da pages_show_list, pages_read_engagement, instagram_basic izinleri gerekir."""
+        if not _is_meta_configured():
+            return []
+        try:
+            data = await self._get(
+                "me/accounts",
+                params={"fields": "id,name,instagram_business_account{id,username}"}
+            )
+            pages = data.get("data", [])
+            result = []
+            for p in pages:
+                page_id = p.get("id")
+                page_name = p.get("name", "")
+                ig_account = p.get("instagram_business_account")
+                ig_username = ""
+                if ig_account and isinstance(ig_account, dict):
+                    ig_username = ig_account.get("username", "") or ""
+                    if not ig_username and ig_account.get("id"):
+                        try:
+                            ig_data = await self._get(
+                                f"{ig_account['id']}",
+                                params={"fields": "username"}
+                            )
+                            ig_username = ig_data.get("username", "") or ""
+                        except Exception:
+                            pass
+                result.append({
+                    "page_id": page_id,
+                    "page_name": page_name,
+                    "instagram_username": ig_username or "",
+                })
+            return result
+        except Exception as e:
+            logger.warning("get_pages_with_instagram hatası: %s", e)
+            return []
 
     async def create_ad(
         self,
