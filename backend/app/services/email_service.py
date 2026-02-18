@@ -128,3 +128,74 @@ def build_report_html(
 </body>
 </html>
 """
+
+
+def send_alert_email(to_email: str, subject: str, body: str) -> bool:
+    """
+    Basit uyarı e-postası gönder (alert sistemi için).
+    
+    Args:
+        to_email: Alıcı e-posta adresi
+        subject: Konu
+        body: Mesaj içeriği (düz metin veya basit HTML)
+    
+    Returns:
+        bool: Başarılı ise True
+    """
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"🚨 {subject}"
+        msg["From"] = _smtp_user()
+        msg["To"] = to_email
+
+        # Düz metin versiyonu
+        text_part = MIMEText(body, "plain", "utf-8")
+        msg.attach(text_part)
+
+        # HTML versiyonu (basit formatlama)
+        html_body = body.replace("\n", "<br>")
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }}
+                .header {{ background: linear-gradient(135deg, #dc2626, #ef4444); color: white; padding: 24px; text-align: center; }}
+                .header h1 {{ margin: 0; font-size: 20px; }}
+                .content {{ padding: 24px; font-size: 14px; line-height: 1.6; color: #333; }}
+                .alert-box {{ background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 8px; margin: 16px 0; }}
+                .footer {{ background: #f4f6f9; text-align: center; padding: 16px; font-size: 12px; color: #999; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🚨 Meta Ads Uyarısı</h1>
+                </div>
+                <div class="content">
+                    <div class="alert-box">
+                        {html_body}
+                    </div>
+                </div>
+                <div class="footer">
+                    Bu uyarı Meta Ads Dashboard tarafından otomatik oluşturulmuştur.
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        html_part = MIMEText(html_content, "html", "utf-8")
+        msg.attach(html_part)
+
+        # SMTP ile gönder
+        with smtplib.SMTP(_smtp_host(), _smtp_port()) as server:
+            server.starttls()
+            server.login(_smtp_user(), _smtp_password())
+            server.sendmail(_smtp_user(), to_email, msg.as_string())
+
+        return True
+    except Exception as e:
+        print(f"Alert e-posta gönderme hatası: {e}")
+        return False

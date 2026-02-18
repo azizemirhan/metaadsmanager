@@ -98,12 +98,17 @@ async def get_analysis_pdf(job_id: str, session: AsyncSession = Depends(get_sess
         raise HTTPException(status_code=404, detail="PDF dosyası bulunamadı")
     
     # PDF'i tarayıcıda görüntülemek için inline, indirmek için attachment
+    # Türkçe karakterler latin-1 header'da hata verir; RFC 5987 filename* kullan
     file_name = path.name
+    from urllib.parse import quote
+    safe_name = quote(file_name, safe='')
     return FileResponse(
         path,
-        filename=file_name,
+        filename="rapor.pdf",
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename=\"{file_name}\""}
+        headers={
+            "Content-Disposition": f"inline; filename=\"rapor.pdf\"; filename*=UTF-8''{safe_name}"
+        }
     )
 
 

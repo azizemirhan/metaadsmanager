@@ -2,22 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAccount } from "./Providers";
+import { useAccount, useAuth } from "./Providers";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutGridIcon },
   { href: "/campaigns", label: "Kampanyalar", icon: MegaphoneIcon },
   { href: "/create-ad", label: "Reklam Özeti", icon: PlusCircleIcon },
   { href: "/ad-summaries", label: "Kayıtlı Özetler", icon: BookmarkIcon },
+  { href: "/alerts", label: "Akıllı Uyarılar", icon: BellIcon },
+  { href: "/webhooks", label: "Webhook", icon: WebhookIcon },
+  { href: "/scheduled-reports", label: "Zamanlanmış Raporlar", icon: CalendarIcon },
   { href: "/analytics", label: "Analitik", icon: ChartIcon },
   { href: "/ai-insights", label: "AI Analiz", icon: RobotIcon },
   { href: "/reports", label: "Raporlar", icon: DocumentIcon },
   { href: "/settings", label: "Ayarlar", icon: SettingsIcon },
 ];
 
+const roleLabels: Record<string, string> = {
+  admin: "Yönetici",
+  manager: "Editör",
+  viewer: "Görüntüleyen",
+};
+
 export function Sidebar() {
   const path = usePathname();
   const { accountId, setAccountId, accounts } = useAccount();
+  const { user, logout } = useAuth();
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-slate-200 flex flex-col flex-shrink-0 shadow-sidebar">
@@ -57,10 +67,22 @@ export function Sidebar() {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-4">
+      <nav className="flex-1 px-4 py-4 overflow-y-auto">
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-3">
           Menü
         </div>
+        {user?.role === "admin" && (
+          <Link
+            href="/users"
+            className={`nav-item mb-1 ${path === "/users" ? "active" : ""}`}
+          >
+            <UsersIcon className={`w-5 h-5 ${path === "/users" ? "text-primary-600" : "text-slate-400"}`} />
+            <span>Kullanıcılar</span>
+            {path === "/users" && (
+              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-600" />
+            )}
+          </Link>
+        )}
         {nav.map((item) => {
           const active = path === item.href;
           const Icon = item.icon;
@@ -97,15 +119,22 @@ export function Sidebar() {
 
       {/* User/Profile */}
       <div className="px-5 py-4 border-t border-slate-100">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-2">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-semibold">
-            A
+            {(user?.username || "U").charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-slate-900 truncate">Admin</div>
-            <div className="text-xs text-slate-500">Yönetici</div>
+            <div className="text-sm font-medium text-slate-900 truncate">{user?.username ?? "—"}</div>
+            <div className="text-xs text-slate-500">{user ? roleLabels[user.role] ?? user.role : "—"}</div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={logout}
+          className="w-full text-left text-xs text-slate-500 hover:text-slate-700 py-1"
+        >
+          Çıkış yap
+        </button>
       </div>
     </aside>
   );
@@ -173,6 +202,38 @@ function SettingsIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+    </svg>
+  );
+}
+
+function WebhookIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+}
+
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function UsersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
     </svg>
   );
 }

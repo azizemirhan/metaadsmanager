@@ -92,7 +92,7 @@ async def get_account_summary(
 
 @router.get("/daily")
 async def get_daily_breakdown(
-    days: int = Query(30, ge=7, le=90),
+    days: int = Query(30, ge=7, le=365),
     ad_account_id: Optional[str] = Query(None, description="Reklam hesabı ID")
 ):
     """Günlük performans verisi"""

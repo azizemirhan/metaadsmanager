@@ -25,9 +25,9 @@ function formatNum(v: unknown) {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "Aktif", 
-  PAUSED: "Duraklatıldı", 
-  DELETED: "Silindi", 
+  ACTIVE: "Aktif",
+  PAUSED: "Duraklatıldı",
+  DELETED: "Silindi",
   ARCHIVED: "Arşivlendi"
 };
 
@@ -152,21 +152,20 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           {/* Period Selector */}
           <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
-            {[7, 14, 30, 90].map(d => (
+            {[7, 14, 30, 90, 180].map(d => (
               <button
                 key={d}
                 onClick={() => setDays(d)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  days === d 
-                    ? "bg-primary-600 text-white shadow-sm" 
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${days === d
+                    ? "bg-primary-600 text-white shadow-sm"
                     : "text-slate-600 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 {d}G
               </button>
             ))}
           </div>
-          <button 
+          <button
             className="btn-outline flex items-center gap-2"
             onClick={handleExport}
             disabled={exportLoading}
@@ -198,33 +197,33 @@ export default function DashboardPage() {
           ))
         ) : (
           <>
-            <MetricCard 
-              label="Toplam Harcama" 
-              value={formatCurrency(Number(summary?.spend ?? 0))} 
-              icon="💸" 
+            <MetricCard
+              label="Toplam Harcama"
+              value={formatCurrency(Number(summary?.spend ?? 0))}
+              icon="💸"
               color="#2563eb"
               trend={Number(summary?.spend ?? 0) > 0 ? "up" : "neutral"}
-              trendLabel="Bu dönem" 
+              trendLabel="Bu dönem"
             />
-            <MetricCard 
-              label="Gösterim" 
-              value={formatNum(Number(summary?.impressions ?? 0))} 
-              icon="👁️" 
-              color="#8b5cf6" 
+            <MetricCard
+              label="Gösterim"
+              value={formatNum(Number(summary?.impressions ?? 0))}
+              icon="👁️"
+              color="#8b5cf6"
             />
-            <MetricCard 
-              label="Tıklama" 
-              value={formatNum(Number(summary?.clicks ?? 0))} 
-              icon="🖱️" 
-              color="#10b981" 
+            <MetricCard
+              label="Tıklama"
+              value={formatNum(Number(summary?.clicks ?? 0))}
+              icon="🖱️"
+              color="#10b981"
             />
-            <MetricCard 
-              label="Ortalama CTR" 
+            <MetricCard
+              label="Ortalama CTR"
               value={`%${Number(summary?.ctr ?? 0).toFixed(2)}`}
               icon="📊"
               color={Number(summary?.ctr ?? 0) >= 1 ? "#10b981" : "#ef4444"}
               trend={Number(summary?.ctr ?? 0) >= 1 ? "up" : "down"}
-              trendLabel={Number(summary?.ctr ?? 0) >= 1 ? "İyi" : "Düşük"} 
+              trendLabel={Number(summary?.ctr ?? 0) >= 1 ? "İyi" : "Düşük"}
             />
           </>
         )}
@@ -242,21 +241,21 @@ export default function DashboardPage() {
             ))
           ) : (
             <>
-              <MetricCard 
-                label="Ort. CPC" 
-                value={formatCurrency(Number(summary?.cpc ?? 0))} 
+              <MetricCard
+                label="Ort. CPC"
+                value={formatCurrency(Number(summary?.cpc ?? 0))}
                 icon="💰"
                 color="#f59e0b"
               />
-              <MetricCard 
-                label="CPM" 
-                value={formatCurrency(Number(summary?.cpm ?? 0))} 
+              <MetricCard
+                label="CPM"
+                value={formatCurrency(Number(summary?.cpm ?? 0))}
                 icon="📱"
                 color="#ec4899"
               />
-              <MetricCard 
-                label="Aktif Kampanya" 
-                value={String(campaigns.filter(c => c.status === "ACTIVE").length)} 
+              <MetricCard
+                label="Aktif Kampanya"
+                value={String(campaigns.filter(c => c.status === "ACTIVE").length)}
                 icon="🟢"
                 color="#10b981"
               />
@@ -324,52 +323,52 @@ export default function DashboardPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis 
-                  dataKey="date_start" 
-                  tick={{ fill: "#64748b", fontSize: 11 }} 
-                  tickLine={false} 
+                <XAxis
+                  dataKey="date_start"
+                  tick={{ fill: "#64748b", fontSize: 11 }}
+                  tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => v?.slice(5)}
                 />
-                <YAxis 
-                  yAxisId="left" 
-                  tick={{ fill: "#64748b", fontSize: 11 }} 
-                  tickLine={false} 
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fill: "#64748b", fontSize: 11 }}
+                  tickLine={false}
                   axisLine={false}
                   tickFormatter={(v) => `₺${v}`}
                 />
-                <YAxis 
-                  yAxisId="right" 
-                  orientation="right" 
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
                   domain={[0, Math.ceil(maxClicks * 1.15) || 10]}
-                  tick={{ fill: "#64748b", fontSize: 11 }} 
-                  tickLine={false} 
+                  tick={{ fill: "#64748b", fontSize: 11 }}
+                  tickLine={false}
                   axisLine={false}
                 />
                 <Tooltip
-                  contentStyle={{ 
-                    background: "white", 
-                    border: "1px solid #e2e8f0", 
-                    borderRadius: 8, 
+                  contentStyle={{
+                    background: "white",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 8,
                     fontSize: 12,
                     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
                   }}
                   labelStyle={{ color: "#475569" }}
                 />
-                <Area 
-                  yAxisId="left" 
-                  type="monotone" 
-                  dataKey="spend" 
-                  stroke="#2563eb" 
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="spend"
+                  stroke="#2563eb"
                   strokeWidth={2}
-                  fill="url(#spendGrad)" 
-                  name="Harcama (₺)" 
+                  fill="url(#spendGrad)"
+                  name="Harcama (₺)"
                 />
-                <Line 
-                  yAxisId="right" 
-                  type="monotone" 
-                  dataKey="clicks" 
-                  stroke="#10b981" 
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="clicks"
+                  stroke="#10b981"
                   strokeWidth={2.5}
                   dot={{ fill: "#10b981", strokeWidth: 0, r: 3 }}
                   activeDot={{ r: 5, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
@@ -391,35 +390,35 @@ export default function DashboardPage() {
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
-                <Pie 
-                  data={pieData} 
-                  cx="50%" 
-                  cy="50%" 
-                  innerRadius={60} 
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
                   outerRadius={90}
-                  dataKey="value" 
-                  nameKey="name" 
+                  dataKey="value"
+                  nameKey="name"
                   paddingAngle={2}
                 >
                   {pieData.map((_, index) => (
                     <Cell key={index} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    background: "white", 
-                    border: "1px solid #e2e8f0", 
-                    borderRadius: 8, 
+                <Tooltip
+                  contentStyle={{
+                    background: "white",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 8,
                     fontSize: 12,
                     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
                   }}
-                  formatter={(v: number) => [formatCurrency(v), "Harcama"]} 
+                  formatter={(v: number) => [formatCurrency(v), "Harcama"]}
                 />
-                <Legend 
-                  verticalAlign="bottom" 
+                <Legend
+                  verticalAlign="bottom"
                   height={36}
                   iconType="circle"
-                  wrapperStyle={{ fontSize: 11, color: "#64748b" }} 
+                  wrapperStyle={{ fontSize: 11, color: "#64748b" }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -481,10 +480,9 @@ export default function DashboardPage() {
                       <td className="text-right mono text-slate-600">
                         {formatCurrency(c.cpc)}
                       </td>
-                      <td className={`text-right mono font-medium ${
-                        Number(c.roas ?? 0) >= 2 ? "text-success-600" : 
-                        Number(c.roas ?? 0) >= 1 ? "text-warning-600" : "text-danger-600"
-                      }`}>
+                      <td className={`text-right mono font-medium ${Number(c.roas ?? 0) >= 2 ? "text-success-600" :
+                          Number(c.roas ?? 0) >= 1 ? "text-warning-600" : "text-danger-600"
+                        }`}>
                         {Number(c.roas ?? 0).toFixed(2)}x
                       </td>
                     </tr>
@@ -507,35 +505,35 @@ export default function DashboardPage() {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={topCampaigns} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-              <XAxis 
-                type="number" 
-                tick={{ fill: "#64748b", fontSize: 11 }} 
-                tickLine={false} 
+              <XAxis
+                type="number"
+                tick={{ fill: "#64748b", fontSize: 11 }}
+                tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => `₺${v}`} 
+                tickFormatter={(v) => `₺${v}`}
               />
-              <YAxis 
-                type="category" 
-                dataKey="name" 
-                tick={{ fill: "#475569", fontSize: 11 }} 
-                tickLine={false} 
+              <YAxis
+                type="category"
+                dataKey="name"
+                tick={{ fill: "#475569", fontSize: 11 }}
+                tickLine={false}
                 axisLine={false}
-                width={150} 
-                tickFormatter={(v) => v.length > 22 ? v.slice(0, 22) + "..." : v} 
+                width={150}
+                tickFormatter={(v) => v.length > 22 ? v.slice(0, 22) + "..." : v}
               />
-              <Tooltip 
-                contentStyle={{ 
-                  background: "white", 
-                  border: "1px solid #e2e8f0", 
-                  borderRadius: 8, 
+              <Tooltip
+                contentStyle={{
+                  background: "white",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 8,
                   fontSize: 12,
                   boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
                 }}
-                formatter={(v: number) => [formatCurrency(v), "Harcama"]} 
+                formatter={(v: number) => [formatCurrency(v), "Harcama"]}
               />
-              <Bar 
-                dataKey="spend" 
-                fill="#2563eb" 
+              <Bar
+                dataKey="spend"
+                fill="#2563eb"
                 radius={[0, 6, 6, 0]}
                 maxBarSize={40}
               />

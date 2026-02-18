@@ -23,14 +23,23 @@ def _register_fonts():
         pdfmetrics.registerFont(TTFont('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
         pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
         return 'DejaVuSans', 'DejaVuSans-Bold'
-    except:
+    except Exception as e:
+        print(f"DejaVu font yüklenemedi: {e}")
         try:
             # macOS fontları
             pdfmetrics.registerFont(TTFont('Helvetica', '/System/Library/Fonts/Helvetica.ttc'))
             return 'Helvetica', 'Helvetica-Bold'
-        except:
+        except Exception:
             # Varsayılan fontlar
             return 'Helvetica', 'Helvetica-Bold'
+
+
+def _safe(text: str) -> str:
+    """XML özel karakterlerini escape'le (<, >, &) — ReportLab Paragraph XML bekler."""
+    text = text.replace('&', '&amp;')
+    text = text.replace('<', '&lt;')
+    text = text.replace('>', '&gt;')
+    return text
 
 
 def _markdown_to_pdf_elements(text: str, styles) -> list:
@@ -55,25 +64,26 @@ def _markdown_to_pdf_elements(text: str, styles) -> list:
         
         # Başlıklar - Spacer ekleme, stil zaten spaceAfter içeriyor
         if line.startswith('# '):
-            elements.append(Paragraph(line[2:], heading1_style))
+            elements.append(Paragraph(_safe(line[2:]), heading1_style))
         elif line.startswith('## '):
-            elements.append(Paragraph(line[3:], heading2_style))
+            elements.append(Paragraph(_safe(line[3:]), heading2_style))
         elif line.startswith('### '):
-            elements.append(Paragraph(line[4:], heading3_style))
+            elements.append(Paragraph(_safe(line[4:]), heading3_style))
         elif line.startswith('#### '):
-            elements.append(Paragraph(line[5:], heading3_style))
+            elements.append(Paragraph(_safe(line[5:]), heading3_style))
         
         # Kalın metin (**text**)
         elif line.startswith('**') and line.endswith('**'):
             clean = line.replace('**', '')
-            elements.append(Paragraph(f"<b>{clean}</b>", normal_style))
+            elements.append(Paragraph(f"<b>{_safe(clean)}</b>", normal_style))
         
         # Liste öğeleri
         elif line.startswith('* ') or line.startswith('- '):
             content = line[2:]
-            # İçinde ** varsa kalın yap
-            content = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', content)
-            elements.append(Paragraph(f"• {content}", bullet_style))
+            # İçinde ** varsa kalın yap - önce escape et, sonra kalınlık ekle
+            safe_content = _safe(content)
+            safe_content = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_content)
+            elements.append(Paragraph(f"• {safe_content}", bullet_style))
         
         # Sayfa sonu ayırıcı (---) - PDF'de sayfa sonu yerine ince çizgi kullan
         elif line == '---':
@@ -90,8 +100,9 @@ def _markdown_to_pdf_elements(text: str, styles) -> list:
         # Normal metin
         else:
             # Markdown kalınlık işaretlerini HTML'e çevir
-            line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
-            elements.append(Paragraph(line, normal_style))
+            safe_line = _safe(line)
+            safe_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_line)
+            elements.append(Paragraph(safe_line, normal_style))
         
         i += 1
     

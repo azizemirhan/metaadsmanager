@@ -1,10 +1,35 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const AUTH_TOKEN_KEY = "meta_ads_token";
+
+export function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setStoredToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+  else localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = getStoredToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}${endpoint}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...options,
   });
+
+  if (res.status === 401) {
+    setStoredToken(null);
+    if (typeof window !== "undefined") window.location.href = "/login";
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Oturum süresi doldu");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `HTTP ${res.status}`);
@@ -43,13 +68,13 @@ export const api = {
   // Campaigns
   getCampaigns: (days = 30, adAccountId?: string | null) =>
     apiFetch<{ data: Campaign[]; count: number }>(`/api/campaigns?days=${days}${_accountParam(adAccountId)}`),
-  
+
   getSummary: (days = 30, adAccountId?: string | null) =>
     apiFetch<AccountSummary>(`/api/campaigns/summary?days=${days}${_accountParam(adAccountId)}`),
-  
+
   getDaily: (days = 30, adAccountId?: string | null) =>
     apiFetch<{ data: DailyData[] }>(`/api/campaigns/daily?days=${days}${_accountParam(adAccountId)}`),
-  
+
   getCampaignAds: (id: string, days = 30, adAccountId?: string | null) =>
     apiFetch<{ data: Ad[] }>(`/api/campaigns/${id}/ads?days=${days}${_accountParam(adAccountId)}`),
 
@@ -199,10 +224,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  /** Kayıtlı raporun CSV dosyalarını backend/data/reports klasörüne yazar (indirme yapmaz). Uzun sürebilir; 2 dk timeout. */
+  /** Kayıtlı raporun CSV dosyalarını backend/data/reports klasörüne yazar (indirme yapmaz). Uzun sürebilir; 5 dk timeout. */
   writeSavedReportCsvToDisk: async (reportId: string) => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 120000);
+    const t = setTimeout(() => ctrl.abort(), 300000);
     try {
       const res = await fetch(`${API_BASE}/api/reports/saved/${reportId}/write-csv`, {
         method: "POST",
@@ -304,7 +329,7 @@ export const api = {
   // Stratejist Asistanı
   getBehaviorModes: () =>
     apiFetch<{ modes: BehaviorMode[] }>("/api/ai/behavior-modes"),
-  
+
   generateStrategicAdSummary: async (body: {
     user_context: string;
     behavior_mode: string;
@@ -386,7 +411,205 @@ export const api = {
 
   getWhatsAppHealth: () =>
     apiFetch<{ configured: boolean; phone_id?: string; message: string }>("/api/whatsapp/health"),
+
+  // Alerts API
+  getAlertRules: (adAccountId?: string | null, isActive?: boolean | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    if (isActive !== null) params.set("is_active", String(isActive));
+    return apiFetch<{ data: AlertRule[]; count: number; limit: number; offset: number }>(`/api/alerts/rules?${params}`);
+  },
+
+  getAlertRule: (ruleId: string) =>
+    apiFetch<{ data: AlertRule }>(`/api/alerts/rules/${ruleId}`),
+
+  createAlertRule: (body: {
+    name: string;
+    metric: string;
+    condition: string;
+    threshold: number;
+    ad_account_id?: string | null;
+    channels?: string[];
+    email_to?: string | null;
+    whatsapp_to?: string | null;
+    cooldown_minutes?: number;
+  }) =>
+    apiFetch<{ success: boolean; data: AlertRule; message: string }>("/api/alerts/rules", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateAlertRule: (ruleId: string, body: Partial<AlertRule>) =>
+    apiFetch<{ success: boolean; data: AlertRule; message: string }>(`/api/alerts/rules/${ruleId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  deleteAlertRule: (ruleId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/alerts/rules/${ruleId}`, {
+      method: "DELETE",
+    }),
+
+  toggleAlertRule: (ruleId: string) =>
+    apiFetch<{ success: boolean; is_active: boolean; message: string }>(`/api/alerts/rules/${ruleId}/toggle`, {
+      method: "POST",
+    }),
+
+  getAlertHistory: (ruleId?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (ruleId) params.set("rule_id", ruleId);
+    if (limit) params.set("limit", String(limit));
+    return apiFetch<{ data: AlertHistoryItem[]; count: number }>(`/api/alerts/history?${params}`);
+  },
+
+  testAlertRule: (ruleId: string, days?: number) =>
+    apiFetch<{
+      rule: AlertRule;
+      campaigns_checked: number;
+      alerts_found: number;
+      results: { rule_id: string; rule_name: string; triggered: boolean; metric: string; threshold: number; actual_value: number; message?: string; campaign_id?: string; campaign_name?: string }[];
+    }>(`/api/alerts/test/${ruleId}?days=${days || 7}`, {
+      method: "POST",
+    }),
+
+  checkAllAlerts: (adAccountId?: string | null) =>
+    apiFetch<{ message: string; checked: number; triggered: number; campaigns_checked: number }>(
+      `/api/alerts/check-all${adAccountId ? `?ad_account_id=${adAccountId}` : ""}`,
+      { method: "POST" }
+    ),
+
+  getAlertMetrics: () =>
+    apiFetch<AlertMetricsResponse>("/api/alerts/metrics"),
+
+  // Webhooks API
+  getWebhookConfig: () =>
+    apiFetch<{
+      webhook_url: string;
+      verify_token: string | null;
+      app_secret_configured: boolean;
+      is_configured: boolean;
+      required_permissions: string[];
+      supported_fields: string[];
+    }>("/api/webhooks/config"),
+
+  getWebhookEvents: (limit?: number, objectType?: string) => {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    if (objectType) params.set("object_type", objectType);
+    return apiFetch<{ events: WebhookEvent[]; total_stored: number }>(`/api/webhooks/events?${params}`);
+  },
+
+  testWebhookDelivery: (body: {
+    object_type?: string;
+    object_id?: string;
+    field?: string;
+    new_value?: string;
+  }) =>
+    apiFetch<{
+      status: string;
+      object_type: string;
+      object_id: string;
+      field: string;
+      new_value: string;
+      message: string;
+    }>("/api/webhooks/test", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  // Scheduled Reports API
+  getScheduledReports: (adAccountId?: string | null, isActive?: boolean | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    if (isActive !== null) params.set("is_active", String(isActive));
+    return apiFetch<{ data: ScheduledReport[]; count: number }>(`/api/scheduled-reports?${params}`);
+  },
+
+  getScheduledReport: (reportId: string) =>
+    apiFetch<{ data: ScheduledReport }>(`/api/scheduled-reports/${reportId}`),
+
+  createScheduledReport: (body: {
+    name: string;
+    report_type: string;
+    days?: number;
+    ad_account_id?: string | null;
+    frequency: string;
+    day_of_week?: number | null;
+    day_of_month?: number | null;
+    hour: number;
+    minute: number;
+    timezone?: string;
+    channels: string[];
+    email_to?: string | null;
+    whatsapp_to?: string | null;
+  }) =>
+    apiFetch<{ success: boolean; data: ScheduledReport; message: string }>("/api/scheduled-reports", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateScheduledReport: (reportId: string, body: Partial<ScheduledReport>) =>
+    apiFetch<{ success: boolean; data: ScheduledReport; message: string }>(`/api/scheduled-reports/${reportId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  deleteScheduledReport: (reportId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/scheduled-reports/${reportId}`, {
+      method: "DELETE",
+    }),
+
+  toggleScheduledReport: (reportId: string) =>
+    apiFetch<{ success: boolean; is_active: boolean; message: string }>(`/api/scheduled-reports/${reportId}/toggle`, {
+      method: "POST",
+    }),
+
+  runScheduledReportNow: (reportId: string) =>
+    apiFetch<{ success: boolean; task_id: string; message: string }>(`/api/scheduled-reports/${reportId}/run-now`, {
+      method: "POST",
+    }),
+
+  getScheduledReportLogs: (reportId: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    return apiFetch<{ data: ScheduledReportLog[]; count: number }>(`/api/scheduled-reports/${reportId}/logs?${params}`);
+  },
+
+  getScheduledReportMetadata: () =>
+    apiFetch<{
+      frequencies: { id: string; name: string; description: string; examples: string[] }[];
+      days_of_week: { id: number; name: string }[];
+      report_types: { id: string; name: string; description: string }[];
+      hours: number[];
+      minutes: number[];
+    }>("/api/scheduled-reports/metadata/frequencies"),
+
+  // Auth (login/register token dışında çağrılır; 401'de yönlendirme yine apiFetch'te)
+  authLogin: (email: string, password: string) =>
+    apiFetch<{ access_token: string; token_type: string; user: AuthUser }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  authRegister: (email: string, username: string, password: string, role?: string) =>
+    apiFetch<{ access_token: string; token_type: string; user: AuthUser }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, username, password, role: role || "viewer" }),
+    }),
+  authMe: () => apiFetch<AuthUser>("/api/auth/me"),
+
+  // Kullanıcı yönetimi (admin)
+  getUsers: () => apiFetch<AuthUser[]>("/api/users"),
+  updateUser: (userId: string, body: { role?: string; is_active?: boolean }) =>
+    apiFetch<AuthUser>(`/api/users/${userId}`, { method: "PATCH", body: JSON.stringify(body) }),
 };
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  is_active: boolean;
+}
 
 // AI Provider Types
 export interface AIProvider {
@@ -508,4 +731,111 @@ export interface BehaviorMode {
   budget_multiplier: number;
   creative_variations: number;
   features: string[];
+}
+
+// Webhook Types
+export interface WebhookEvent {
+  object_type: string;
+  object_id: string;
+  field: string;
+  value: Record<string, unknown>;
+  time: string;
+}
+
+// Scheduled Report Types
+export interface ScheduledReport {
+  id: string;
+  name: string;
+  report_type: string;
+  days: number;
+  ad_account_id?: string;
+  frequency: "daily" | "weekly" | "monthly";
+  day_of_week?: number;
+  day_of_month?: number;
+  hour: number;
+  minute: number;
+  timezone: string;
+  channels: string[];
+  email_to?: string;
+  whatsapp_to?: string;
+  is_active: boolean;
+  last_run_at?: string;
+  next_run_at?: string;
+  run_count: number;
+  created_at?: string;
+}
+
+export interface ScheduledReportLog {
+  id: string;
+  scheduled_report_id: string;
+  status: "success" | "failed" | "running";
+  started_at: string;
+  completed_at?: string;
+  summary_data?: {
+    campaign_count: number;
+    total_spend: number;
+    total_impressions: number;
+    total_clicks: number;
+    avg_ctr: number;
+  };
+  ai_analysis?: string;
+  error_message?: string;
+  channels_sent: string[];
+}
+
+// Alert Types
+export interface AlertRule {
+  id: string;
+  name: string;
+  metric: "ctr" | "roas" | "spend" | "cpc" | "cpm" | "impressions" | "clicks" | "frequency";
+  condition: "lt" | "gt" | "change_pct";
+  threshold: number;
+  ad_account_id?: string | null;
+  channels: string[];
+  email_to?: string;
+  whatsapp_to?: string;
+  is_active: boolean;
+  cooldown_minutes: number;
+  last_triggered?: string;
+  trigger_count: number;
+  created_at?: string;
+}
+
+export interface AlertHistoryItem {
+  id: string;
+  rule_id: string;
+  campaign_id?: string;
+  campaign_name?: string;
+  metric: string;
+  threshold: number;
+  actual_value: number;
+  message: string;
+  channels_sent: string[];
+  sent_at: string;
+}
+
+export interface AlertMetricInfo {
+  id: string;
+  name: string;
+  format: string;
+  example: number;
+}
+
+export interface AlertConditionInfo {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface AlertChannelInfo {
+  id: string;
+  name: string;
+  requires: string;
+}
+
+export interface AlertMetricsResponse {
+  metrics: AlertMetricInfo[];
+  conditions: AlertConditionInfo[];
+  channels: AlertChannelInfo[];
+  examples: { name: string; metric: string; condition: string; threshold: number; description: string }[];
 }

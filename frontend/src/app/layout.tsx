@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "./components/Sidebar";
 import { Providers } from "./components/Providers";
+import { LayoutGuard } from "./components/LayoutGuard";
 
 export const metadata: Metadata = {
   title: "Meta Ads Dashboard",
@@ -13,12 +13,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="tr">
       <body className="antialiased">
         <Providers>
-          <div className="flex min-h-screen bg-slate-50">
-            <Sidebar />
-            <main className="flex-1 p-8 overflow-y-auto">
-              {children}
-            </main>
-          </div>
+          <LayoutGuard>
+            {children}
+          </LayoutGuard>
         </Providers>
       </body>
     </html>
