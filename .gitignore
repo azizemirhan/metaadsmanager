@@ -19,3 +19,6 @@ frontend/out/
 .vscode/
 .DS_Store
 *.log
+.env.root
+backend/celerybeat-schedule
+backend/create_admin_script.py
