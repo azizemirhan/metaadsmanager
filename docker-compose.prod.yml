@@ -118,6 +118,17 @@ services:
     depends_on:
       - backend
 
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+    depends_on:
+      - frontend
+      - backend
+
 volumes:
   postgres_data:
   reports_csv_data:

@@ -168,7 +168,7 @@ export default function WebhooksPage() {
           <p className="text-slate-600 text-sm mb-4">
             Bu URL'yi Meta Developers Console'da webhook olarak kaydedin.
           </p>
-          
+
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Callback URL</label>
@@ -216,8 +216,8 @@ export default function WebhooksPage() {
               <strong>Environment Variables:</strong>
             </p>
             <code className="text-xs text-slate-500 block mt-1">
-              META_WEBHOOK_VERIFY_TOKEN=your_secret_token<br/>
-              META_APP_SECRET=your_app_secret<br/>
+              META_WEBHOOK_VERIFY_TOKEN=your_secret_token<br />
+              META_APP_SECRET=your_app_secret<br />
               WEBHOOK_BASE_URL=https://your-domain.com
             </code>
           </div>
@@ -302,9 +302,9 @@ export default function WebhooksPage() {
                   </div>
                   <p className="text-sm text-slate-600 mt-1">
                     <span className="font-medium">{event.field}</span> alanı güncellendi
-                    {event.value?.status && (
+                    {(event.value as any)?.status && (
                       <span className="ml-2 px-2 py-0.5 bg-white rounded text-xs border">
-                        Yeni durum: {event.value.status}
+                        Yeni durum: {String((event.value as any).status)}
                       </span>
                     )}
                   </p>

@@ -443,8 +443,8 @@ export default function ScheduledReportsPage() {
                     setFormData({
                       ...formData,
                       frequency: freq,
-                      day_of_week: freq === "weekly" ? 1 : undefined,
-                      day_of_month: freq === "monthly" ? 1 : undefined,
+                      day_of_week: freq === "weekly" ? 1 : 1,
+                      day_of_month: freq === "monthly" ? 1 : 1,
                     });
                   }}
                   className="input w-full"
