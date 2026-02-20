@@ -124,6 +124,102 @@ class AlertHistory(Base):
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
+class CampaignAutomationRule(Base):
+    """Kampanya otomasyon kuralı: metrik eşiğine göre otomatik aksiyon alır."""
+    __tablename__ = "campaign_automation_rules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Tetikleyici koşul
+    metric: Mapped[str] = mapped_column(String(64), nullable=False)  # ctr, roas, spend, cpc, cpm, frequency
+    condition: Mapped[str] = mapped_column(String(32), nullable=False)  # lt, gt
+    threshold: Mapped[float] = mapped_column(nullable=False)
+
+    # Aksiyon
+    action: Mapped[str] = mapped_column(String(32), nullable=False)  # pause, resume, notify, budget_decrease, budget_increase
+    action_value: Mapped[Optional[float]] = mapped_column(nullable=True)  # budget değişim yüzdesi (örn. 20 = %20)
+
+    # Kapsam
+    ad_account_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    campaign_ids: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Boşsa tüm kampanyalar
+
+    # Bildirim
+    notify_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    notify_whatsapp: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # Durum
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    cooldown_minutes: Mapped[int] = mapped_column(default=60)
+    last_triggered: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    trigger_count: Mapped[int] = mapped_column(default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CampaignAutomationLog(Base):
+    """Otomasyon kuralı çalıştırma geçmişi."""
+    __tablename__ = "campaign_automation_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    rule_id: Mapped[str] = mapped_column(String(36), ForeignKey("campaign_automation_rules.id", ondelete="CASCADE"), nullable=False)
+    campaign_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    campaign_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    action_taken: Mapped[str] = mapped_column(String(32), nullable=False)
+    metric: Mapped[str] = mapped_column(String(64), nullable=False)
+    threshold: Mapped[float] = mapped_column(nullable=False)
+    actual_value: Mapped[float] = mapped_column(nullable=False)
+
+    success: Mapped[bool] = mapped_column(Boolean, default=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+def automation_rule_to_dict(row: CampaignAutomationRule) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "description": row.description,
+        "metric": row.metric,
+        "condition": row.condition,
+        "threshold": row.threshold,
+        "action": row.action,
+        "action_value": row.action_value,
+        "ad_account_id": row.ad_account_id,
+        "campaign_ids": row.campaign_ids or [],
+        "notify_email": row.notify_email,
+        "notify_whatsapp": row.notify_whatsapp,
+        "is_active": row.is_active,
+        "cooldown_minutes": row.cooldown_minutes,
+        "last_triggered": row.last_triggered.isoformat() if row.last_triggered else None,
+        "trigger_count": row.trigger_count,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def automation_log_to_dict(row: CampaignAutomationLog) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "rule_id": row.rule_id,
+        "campaign_id": row.campaign_id,
+        "campaign_name": row.campaign_name,
+        "action_taken": row.action_taken,
+        "metric": row.metric,
+        "threshold": row.threshold,
+        "actual_value": row.actual_value,
+        "success": row.success,
+        "message": row.message,
+        "error": row.error,
+        "executed_at": row.executed_at.isoformat() if row.executed_at else None,
+    }
+
+
 def saved_report_to_dict(row: SavedReport) -> dict[str, Any]:
     """ORM SavedReport -> API için dict."""
     return {

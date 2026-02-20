@@ -584,6 +584,79 @@ export const api = {
       minutes: number[];
     }>("/api/scheduled-reports/metadata/frequencies"),
 
+  // Campaign Automation API
+  getAutomationRules: (adAccountId?: string | null, isActive?: boolean | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    if (isActive !== null && isActive !== undefined) params.set("is_active", String(isActive));
+    return apiFetch<{ data: AutomationRule[]; count: number }>(`/api/automation/rules?${params}`);
+  },
+
+  createAutomationRule: (body: {
+    name: string;
+    description?: string;
+    metric: string;
+    condition: string;
+    threshold: number;
+    action: string;
+    action_value?: number;
+    ad_account_id?: string | null;
+    campaign_ids?: string[];
+    notify_email?: string;
+    notify_whatsapp?: string;
+    cooldown_minutes?: number;
+  }) =>
+    apiFetch<{ success: boolean; data: AutomationRule }>("/api/automation/rules", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateAutomationRule: (ruleId: string, body: Partial<AutomationRule>) =>
+    apiFetch<{ success: boolean; data: AutomationRule }>(`/api/automation/rules/${ruleId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  deleteAutomationRule: (ruleId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/automation/rules/${ruleId}`, {
+      method: "DELETE",
+    }),
+
+  toggleAutomationRule: (ruleId: string) =>
+    apiFetch<{ success: boolean; is_active: boolean; message: string }>(`/api/automation/rules/${ruleId}/toggle`, {
+      method: "POST",
+    }),
+
+  runAutomationRule: (ruleId: string, dryRun = false) =>
+    apiFetch<{ rule: AutomationRule; dry_run: boolean; triggered_count: number; results: AutomationResult[] }>(
+      `/api/automation/rules/${ruleId}/run?dry_run=${dryRun}`,
+      { method: "POST" }
+    ),
+
+  runAllAutomationRules: (adAccountId?: string | null, dryRun = false) => {
+    const params = new URLSearchParams({ dry_run: String(dryRun) });
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ rules_checked: number; total_triggered: number; dry_run: boolean; results: AutomationResult[] }>(
+      `/api/automation/run-all?${params}`,
+      { method: "POST" }
+    );
+  },
+
+  getAutomationLogs: (ruleId?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (ruleId) params.set("rule_id", ruleId);
+    if (limit) params.set("limit", String(limit));
+    return apiFetch<{ data: AutomationLog[]; count: number }>(`/api/automation/logs?${params}`);
+  },
+
+  getAutomationMeta: () =>
+    apiFetch<{
+      metrics: { id: string; name: string; unit: string }[];
+      conditions: { id: string; name: string; description: string }[];
+      actions: { id: string; name: string; description: string; requires_value?: boolean }[];
+      examples: { name: string; metric: string; condition: string; threshold: number; action: string; action_value?: number; description: string }[];
+    }>("/api/automation/meta"),
+
   // Auth (login/register token dışında çağrılır; 401'de yönlendirme yine apiFetch'te)
   authLogin: (email: string, password: string) =>
     apiFetch<{ access_token: string; token_type: string; user: AuthUser }>("/api/auth/login", {
@@ -838,4 +911,53 @@ export interface AlertMetricsResponse {
   conditions: AlertConditionInfo[];
   channels: AlertChannelInfo[];
   examples: { name: string; metric: string; condition: string; threshold: number; description: string }[];
+}
+
+// Automation Types
+export interface AutomationRule {
+  id: string;
+  name: string;
+  description?: string;
+  metric: string;
+  condition: "lt" | "gt";
+  threshold: number;
+  action: "pause" | "resume" | "notify" | "budget_decrease" | "budget_increase";
+  action_value?: number;
+  ad_account_id?: string | null;
+  campaign_ids?: string[];
+  notify_email?: string;
+  notify_whatsapp?: string;
+  is_active: boolean;
+  cooldown_minutes: number;
+  last_triggered?: string;
+  trigger_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AutomationLog {
+  id: string;
+  rule_id: string;
+  campaign_id: string;
+  campaign_name?: string;
+  action_taken: string;
+  metric: string;
+  threshold: number;
+  actual_value: number;
+  success: boolean;
+  message: string;
+  error?: string;
+  executed_at: string;
+}
+
+export interface AutomationResult {
+  campaign_id: string;
+  campaign_name: string;
+  metric: string;
+  actual_value: number;
+  threshold: number;
+  action: string;
+  success: boolean;
+  message: string;
+  error?: string;
 }
