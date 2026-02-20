@@ -657,6 +657,206 @@ export const api = {
       examples: { name: string; metric: string; condition: string; threshold: number; action: string; action_value?: number; description: string }[];
     }>("/api/automation/meta"),
 
+  // ─── Security API (Feature 7) ──────────────────────────────────────────────
+
+  getTwoFAStatus: () =>
+    apiFetch<{ enabled: boolean; configured: boolean }>("/api/security/2fa/status"),
+
+  setupTwoFA: () =>
+    apiFetch<{ secret: string; uri: string; message: string }>("/api/security/2fa/setup", { method: "POST" }),
+
+  enableTwoFA: (code: string) =>
+    apiFetch<{ success: boolean; backup_codes: string[] }>("/api/security/2fa/enable", {
+      method: "POST", body: JSON.stringify({ code }),
+    }),
+
+  disableTwoFA: (code: string) =>
+    apiFetch<{ success: boolean; message: string }>("/api/security/2fa/disable", {
+      method: "POST", body: JSON.stringify({ code }),
+    }),
+
+  listAPIKeys: () =>
+    apiFetch<{ data: APIKeyItem[]; count: number }>("/api/security/api-keys"),
+
+  createAPIKey: (body: { name: string; expires_days?: number | null }) =>
+    apiFetch<{ success: boolean; data: APIKeyItem; message: string }>("/api/security/api-keys", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  revokeAPIKey: (keyId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/security/api-keys/${keyId}`, { method: "DELETE" }),
+
+  rotateAPIKey: (keyId: string, body: { name: string; expires_days?: number | null }) =>
+    apiFetch<{ success: boolean; data: APIKeyItem; old_key_id: string }>(`/api/security/api-keys/${keyId}/rotate`, {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  getAuditLogs: (params?: { user_email?: string; action?: string; resource_type?: string; limit?: number }) => {
+    const p = new URLSearchParams();
+    if (params?.user_email) p.set("user_email", params.user_email);
+    if (params?.action) p.set("action", params.action);
+    if (params?.resource_type) p.set("resource_type", params.resource_type);
+    if (params?.limit) p.set("limit", String(params.limit));
+    return apiFetch<{ data: AuditLogEntry[]; count: number }>(`/api/security/audit-logs?${p}`);
+  },
+
+  // ─── AI Templates API (Feature 8) ─────────────────────────────────────────
+
+  getAITemplates: (contextType?: string, language?: string) => {
+    const p = new URLSearchParams();
+    if (contextType) p.set("context_type", contextType);
+    if (language) p.set("language", language);
+    return apiFetch<{ data: AIAnalysisTemplate[]; count: number }>(`/api/ai-templates/templates?${p}`);
+  },
+
+  createAITemplate: (body: { name: string; description?: string; context_type: string; prompt_template: string; language: string; is_default: boolean }) =>
+    apiFetch<{ success: boolean; data: AIAnalysisTemplate }>("/api/ai-templates/templates", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  updateAITemplate: (id: string, body: { name: string; description?: string; context_type: string; prompt_template: string; language: string; is_default: boolean }) =>
+    apiFetch<{ success: boolean; data: AIAnalysisTemplate }>(`/api/ai-templates/templates/${id}`, {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  deleteAITemplate: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/ai-templates/templates/${id}`, { method: "DELETE" }),
+
+  seedDefaultAITemplates: () =>
+    apiFetch<{ success: boolean; added: string[]; skipped: number }>("/api/ai-templates/templates/seed-defaults", { method: "POST" }),
+
+  getContextEntries: (contextType?: string, limit?: number) => {
+    const p = new URLSearchParams();
+    if (contextType) p.set("context_type", contextType);
+    if (limit) p.set("limit", String(limit));
+    return apiFetch<{ data: AIContextEntry[]; count: number }>(`/api/ai-templates/context-entries?${p}`);
+  },
+
+  createContextEntry: (body: { context_type: string; period_label: string; insights: string; key_metrics?: Record<string, unknown> | null; ad_account_id?: string | null }) =>
+    apiFetch<{ success: boolean; data: AIContextEntry }>("/api/ai-templates/context-entries", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  deleteContextEntry: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/ai-templates/context-entries/${id}`, { method: "DELETE" }),
+
+  getContextSummary: (adAccountId?: string | null, lastN?: number) => {
+    const p = new URLSearchParams();
+    if (adAccountId) p.set("ad_account_id", adAccountId);
+    if (lastN) p.set("last_n", String(lastN));
+    return apiFetch<{ summary: string; entry_count: number }>(`/api/ai-templates/context-entries/summary?${p}`);
+  },
+
+  getAILanguage: () =>
+    apiFetch<{ language: string; language_name: string; available: Record<string, string> }>("/api/ai-templates/language"),
+
+  setAILanguage: (language: string) =>
+    apiFetch<{ success: boolean; language: string; language_name: string }>("/api/ai-templates/language", {
+      method: "PUT", body: JSON.stringify({ language }),
+    }),
+
+  getAITemplateMeta: () =>
+    apiFetch<{
+      context_types: { id: string; name: string }[];
+      languages: { code: string; name: string }[];
+      template_variables: { var: string; description: string }[];
+    }>("/api/ai-templates/meta"),
+
+  // ─── Campaign Templates API (Feature 9) ───────────────────────────────────
+
+  getCampaignTemplates: (adAccountId?: string | null) => {
+    const p = new URLSearchParams();
+    if (adAccountId) p.set("ad_account_id", adAccountId);
+    return apiFetch<{ data: CampaignTemplateItem[]; count: number }>(`/api/campaign-templates?${p}`);
+  },
+
+  createCampaignTemplate: (body: { name: string; description?: string; objective?: string; daily_budget?: number; lifetime_budget?: number; ad_account_id?: string | null }) =>
+    apiFetch<{ success: boolean; data: CampaignTemplateItem }>("/api/campaign-templates", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  updateCampaignTemplate: (id: string, body: { name: string; description?: string; objective?: string; daily_budget?: number; lifetime_budget?: number; ad_account_id?: string | null }) =>
+    apiFetch<{ success: boolean; data: CampaignTemplateItem }>(`/api/campaign-templates/${id}`, {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  deleteCampaignTemplate: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/campaign-templates/${id}`, { method: "DELETE" }),
+
+  applyCampaignTemplate: (id: string, body: { name: string; ad_account_id?: string | null; status?: string }) =>
+    apiFetch<{ success: boolean; campaign_id: string; name: string; template_id: string; message: string }>(`/api/campaign-templates/${id}/apply`, {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  cloneCampaign: (body: { campaign_id: string; new_name?: string; status?: string; ad_account_id?: string | null; save_as_template?: boolean; template_name?: string }) =>
+    apiFetch<{ success: boolean; original_campaign_id: string; new_campaign_id: string; new_name: string; saved_template?: CampaignTemplateItem | null }>("/api/campaign-templates/clone", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  saveTemplateFromCampaign: (campaignId: string, templateName?: string, adAccountId?: string | null) => {
+    const p = new URLSearchParams({ campaign_id: campaignId });
+    if (templateName) p.set("template_name", templateName);
+    if (adAccountId) p.set("ad_account_id", adAccountId);
+    return apiFetch<{ success: boolean; data: CampaignTemplateItem }>(`/api/campaign-templates/save-from-campaign?${p}`, { method: "POST" });
+  },
+
+  // ─── Cloud Export API (Feature 10) ────────────────────────────────────────
+
+  getCloudConfig: () =>
+    apiFetch<{
+      provider: string;
+      s3: { access_key_id?: string | null; secret_access_key?: string | null; region: string; bucket?: string | null };
+      gcs: { project_id?: string | null; credentials_json?: string | null; bucket?: string | null };
+      archive: { auto_archive: boolean; prefix: string; retention_days: number };
+      supported_providers: string[];
+    }>("/api/cloud-export/config"),
+
+  updateCloudConfig: (body: {
+    provider?: string;
+    aws_access_key_id?: string;
+    aws_secret_access_key?: string;
+    aws_region?: string;
+    bucket_s3?: string;
+    gcs_project_id?: string;
+    gcs_credentials_json?: string;
+    bucket_gcs?: string;
+    auto_archive?: boolean;
+    archive_prefix?: string;
+    retention_days?: number;
+  }) =>
+    apiFetch<{ success: boolean; updated_keys: string[] }>("/api/cloud-export/config", {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  testCloudConnection: (provider: string, bucket: string) =>
+    apiFetch<{ success: boolean; error?: string }>("/api/cloud-export/test", {
+      method: "POST", body: JSON.stringify({ provider, bucket }),
+    }),
+
+  getCloudExportJobs: (limit?: number) => {
+    const p = new URLSearchParams();
+    if (limit) p.set("limit", String(limit));
+    return apiFetch<{ data: CloudExportJobItem[]; count: number }>(`/api/cloud-export/jobs?${p}`);
+  },
+
+  triggerCloudExport: (body: { file_path: string; object_key?: string; provider?: string; bucket?: string }) =>
+    apiFetch<{ success: boolean; job: CloudExportJobItem; upload_result: { url: string; file_size_bytes: number } }>("/api/cloud-export/export", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  archiveToCloud: (body?: { provider?: string; bucket?: string; prefix?: string }) =>
+    apiFetch<{ success: boolean; job_id: string; uploaded: number; files: { file: string; key: string; size?: number }[]; errors: { file: string; error: string }[] }>("/api/cloud-export/archive", {
+      method: "POST", body: JSON.stringify(body || {}),
+    }),
+
+  getArchiveSettings: () =>
+    apiFetch<{ auto_archive: boolean; prefix: string; retention_days: number; provider: string }>("/api/cloud-export/archive-settings"),
+
+  updateArchiveSettings: (body: { auto_archive: boolean; prefix?: string; retention_days?: number }) =>
+    apiFetch<{ success: boolean }>("/api/cloud-export/archive-settings", {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
   // Audience Management API
   getAudiences: (adAccountId?: string | null) => {
     const params = new URLSearchParams();
@@ -1247,4 +1447,88 @@ export interface CustomMetric {
   format?: string;
   unit?: string;
   created_at?: string;
+}
+
+// ─── Feature 7: Security Types ────────────────────────────────────────────────
+
+export interface APIKeyItem {
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  key?: string | null;
+  is_active: boolean;
+  expires_at?: string | null;
+  last_used_at?: string | null;
+  created_at?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  action: string;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  details?: Record<string, unknown> | null;
+  ip_address?: string | null;
+  created_at?: string;
+}
+
+// ─── Feature 8: AI Template Types ────────────────────────────────────────────
+
+export interface AIAnalysisTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  context_type: string;
+  prompt_template: string;
+  language: string;
+  is_default: boolean;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string | null;
+}
+
+export interface AIContextEntry {
+  id: string;
+  ad_account_id?: string | null;
+  context_type: string;
+  period_label: string;
+  key_metrics?: Record<string, unknown> | null;
+  insights: string;
+  created_at?: string;
+}
+
+// ─── Feature 9: Campaign Template Types ───────────────────────────────────────
+
+export interface CampaignTemplateItem {
+  id: string;
+  name: string;
+  description?: string;
+  objective: string;
+  status: string;
+  daily_budget?: number | null;
+  lifetime_budget?: number | null;
+  targeting?: Record<string, unknown> | null;
+  ad_account_id?: string | null;
+  source_campaign_id?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string | null;
+}
+
+// ─── Feature 10: Cloud Export Types ───────────────────────────────────────────
+
+export interface CloudExportJobItem {
+  id: string;
+  provider: string;
+  bucket: string;
+  object_key: string;
+  file_path?: string | null;
+  file_size_bytes?: number | null;
+  status: string;
+  error_message?: string | null;
+  created_at?: string;
+  completed_at?: string | null;
 }
