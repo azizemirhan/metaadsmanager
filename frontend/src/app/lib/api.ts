@@ -657,6 +657,168 @@ export const api = {
       examples: { name: string; metric: string; condition: string; threshold: number; action: string; action_value?: number; description: string }[];
     }>("/api/automation/meta"),
 
+  // Audience Management API
+  getAudiences: (adAccountId?: string | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ data: Audience[]; count: number }>(`/api/audiences?${params}`);
+  },
+
+  createCustomAudience: (body: {
+    name: string;
+    description?: string;
+    customer_file_source?: string;
+    ad_account_id?: string | null;
+  }) =>
+    apiFetch<{ success: boolean; data: Audience }>("/api/audiences/custom", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  createLookalikeAudience: (body: {
+    source_audience_id: string;
+    name: string;
+    country: string;
+    ratio?: number;
+    ad_account_id?: string | null;
+  }) =>
+    apiFetch<{ success: boolean; data: Audience }>("/api/audiences/lookalike", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  deleteAudience: (audienceId: string, adAccountId?: string | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ success: boolean; message: string }>(`/api/audiences/${audienceId}?${params}`, {
+      method: "DELETE",
+    });
+  },
+
+  audienceOverlap: (audienceIds: string, adAccountId?: string | null) => {
+    const params = new URLSearchParams({ audience_ids: audienceIds });
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ overlap: AudienceOverlapResult[] }>(`/api/audiences/overlap?${params}`);
+  },
+
+  exportAudiencesCsv: async (adAccountId?: string | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    const res = await fetch(`${API_BASE}/api/audiences/export/csv?${params}`);
+    if (!res.ok) throw new Error("CSV indirilemedi");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audiences_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  // Competitor Analysis API
+  searchCompetitorAds: (params: {
+    q?: string;
+    countries?: string;
+    ad_type?: string;
+    active_status?: string;
+    page_ids?: string;
+    date_min?: string;
+    date_max?: string;
+    limit?: number;
+  }) => {
+    const p = new URLSearchParams();
+    if (params.q) p.set("q", params.q);
+    if (params.countries) p.set("countries", params.countries);
+    if (params.ad_type) p.set("ad_type", params.ad_type);
+    if (params.active_status) p.set("active_status", params.active_status);
+    if (params.page_ids) p.set("page_ids", params.page_ids);
+    if (params.date_min) p.set("date_min", params.date_min);
+    if (params.date_max) p.set("date_max", params.date_max);
+    if (params.limit) p.set("limit", String(params.limit));
+    return apiFetch<{ ads: CompetitorAd[]; total: number; has_next: boolean }>(`/api/competitor/search?${p}`);
+  },
+
+  getCompetitorPage: (pageId: string) =>
+    apiFetch<{ id: string; name: string; category?: string; fan_count?: number; active_ads?: number; total_ads?: number }>(`/api/competitor/page/${pageId}`),
+
+  analyzeCompetitor: (pageId: string, countries = "TR", limit = 50) =>
+    apiFetch<{
+      page_id: string;
+      total_ads: number;
+      active_ads: number;
+      inactive_ads: number;
+      avg_body_length: number;
+      common_keywords: { word: string; count: number }[];
+      ads: CompetitorAd[];
+    }>(`/api/competitor/analyze?page_id=${encodeURIComponent(pageId)}&countries=${countries}&limit=${limit}`),
+
+  // Analytics Advanced API
+  runABTest: (body: {
+    campaign_ids: string[];
+    metric: string;
+    days?: number;
+  }) =>
+    apiFetch<ABTestResult>("/api/analytics/ab-test", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getCohortAnalysis: (params: {
+    days?: number;
+    cohort_by?: string;
+    metric?: string;
+    ad_account_id?: string | null;
+  }) => {
+    const p = new URLSearchParams();
+    if (params.days) p.set("days", String(params.days));
+    if (params.cohort_by) p.set("cohort_by", params.cohort_by);
+    if (params.metric) p.set("metric", params.metric);
+    if (params.ad_account_id) p.set("ad_account_id", params.ad_account_id);
+    return apiFetch<CohortAnalysisResult>(`/api/analytics/cohort?${p}`);
+  },
+
+  runAttributionModel: (body: {
+    model: string;
+    days?: number;
+    ad_account_id?: string | null;
+  }) =>
+    apiFetch<AttributionResult>("/api/analytics/attribution", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getCustomMetrics: () =>
+    apiFetch<{ data: CustomMetric[]; count: number }>("/api/analytics/custom-metrics"),
+
+  createCustomMetric: (body: {
+    name: string;
+    formula: string;
+    description?: string;
+    format?: string;
+    unit?: string;
+  }) =>
+    apiFetch<{ success: boolean; data: CustomMetric }>("/api/analytics/custom-metrics", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  deleteCustomMetric: (metricId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/analytics/custom-metrics/${metricId}`, {
+      method: "DELETE",
+    }),
+
+  calculateCustomMetric: (metricId: string, adAccountId?: string | null, days = 30) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{
+      metric: CustomMetric;
+      results: { campaign_id: string; campaign_name: string; value: number | null; error?: string }[];
+      days: number;
+    }>(`/api/analytics/custom-metrics/${metricId}/calculate?${params}`, {
+      method: "POST",
+    });
+  },
+
   // Auth (login/register token dışında çağrılır; 401'de yönlendirme yine apiFetch'te)
   authLogin: (email: string, password: string) =>
     apiFetch<{ access_token: string; token_type: string; user: AuthUser }>("/api/auth/login", {
@@ -960,4 +1122,129 @@ export interface AutomationResult {
   success: boolean;
   message: string;
   error?: string;
+}
+
+// Audience Types
+export interface Audience {
+  id: string;
+  name: string;
+  description?: string;
+  subtype: string;
+  approximate_count?: number;
+  approximate_count_lower_bound?: number;
+  approximate_count_upper_bound?: number;
+  data_source?: { type: string; creation_params?: Record<string, unknown> };
+  delivery_status?: { code: number; description: string };
+  operation_status?: { code: number; description: string };
+  time_created?: string;
+  time_updated?: string;
+  lookalike_spec?: { ratio: number; country: string; starting_ratio?: number };
+}
+
+export interface AudienceOverlapResult {
+  audience_id_1: string;
+  audience_id_2: string;
+  audience_name_1?: string;
+  audience_name_2?: string;
+  overlap_estimate?: number;
+  audience_1_size?: number;
+  audience_2_size?: number;
+  overlap_percentage?: number;
+}
+
+// Competitor Ad Types
+export interface CompetitorAd {
+  id: string;
+  page_id?: string;
+  page_name?: string;
+  body?: string;
+  bodies?: string[];
+  title?: string;
+  caption?: string;
+  description?: string;
+  snapshot_url?: string;
+  start_date?: string;
+  stop_date?: string;
+  countries?: string[];
+  bylines?: string[];
+  is_active: boolean;
+}
+
+// Analytics Advanced Types
+export interface ABTestVariant {
+  campaign_id: string;
+  campaign_name: string;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  spend: number;
+  ctr: number;
+  cpc: number;
+  roas: number;
+}
+
+export interface ABTestComparison {
+  variant_a: string;
+  variant_b: string;
+  metric: string;
+  value_a: number;
+  value_b: number;
+  z_score: number;
+  p_value: number;
+  significant: boolean;
+  winner?: string;
+  confidence: number;
+}
+
+export interface ABTestResult {
+  variants: ABTestVariant[];
+  comparisons: ABTestComparison[];
+  winner?: string;
+  metric: string;
+  days: number;
+}
+
+export interface CohortGroup {
+  cohort: string;
+  total_spend: number;
+  total_impressions: number;
+  total_clicks: number;
+  avg_ctr: number;
+  days: number;
+}
+
+export interface CohortAnalysisResult {
+  cohorts: CohortGroup[];
+  cohort_by: string;
+  metric: string;
+  days: number;
+}
+
+export interface AttributionWeight {
+  campaign_id: string;
+  campaign_name: string;
+  spend: number;
+  clicks: number;
+  conversions: number;
+  attributed_weight: number;
+  attributed_conversions: number;
+}
+
+export interface AttributionResult {
+  model: string;
+  model_name: string;
+  weights: AttributionWeight[];
+  total_conversions: number;
+  days: number;
+}
+
+// Custom Metric Types
+export interface CustomMetric {
+  id: string;
+  name: string;
+  formula: string;
+  description?: string;
+  format?: string;
+  unit?: string;
+  created_at?: string;
 }

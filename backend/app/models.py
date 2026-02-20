@@ -220,6 +220,31 @@ def automation_log_to_dict(row: CampaignAutomationLog) -> dict[str, Any]:
     }
 
 
+class CustomMetric(Base):
+    """Kullanıcı tanımlı hesaplama formülü (analytics_advanced'de kullanılır)."""
+    __tablename__ = "custom_metrics"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    formula: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    format: Mapped[str] = mapped_column(String(32), default="number")  # number | percent | currency
+    unit: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+def custom_metric_to_dict(row: "CustomMetric") -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "formula": row.formula,
+        "description": row.description,
+        "format": row.format,
+        "unit": row.unit,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
 def saved_report_to_dict(row: SavedReport) -> dict[str, Any]:
     """ORM SavedReport -> API için dict."""
     return {

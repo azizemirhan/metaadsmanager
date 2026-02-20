@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException
-from app.routers import campaigns, adsets, reports, ai_analysis, email_reports, settings, creatives, ads, whatsapp, jobs, targeting, ad_summaries, alerts, webhooks, scheduled_reports, auth, users, automation
+from app.routers import campaigns, adsets, reports, ai_analysis, email_reports, settings, creatives, ads, whatsapp, jobs, targeting, ad_summaries, alerts, webhooks, scheduled_reports, auth, users, automation, competitor, audiences, analytics_advanced
 from app import config
 from app.database import init_db
 from app.deps import get_current_user
@@ -103,6 +103,9 @@ app.include_router(alerts.router, tags=["Alerts"], dependencies=[Depends(get_cur
 app.include_router(webhooks.router, tags=["Webhooks"])  # Meta callback için korumasız
 app.include_router(scheduled_reports.router, tags=["Scheduled Reports"], dependencies=[Depends(get_current_user)])
 app.include_router(automation.router, tags=["Automation"], dependencies=[Depends(get_current_user)])
+app.include_router(competitor.router, tags=["Competitor"], dependencies=[Depends(get_current_user)])
+app.include_router(audiences.router, tags=["Audiences"], dependencies=[Depends(get_current_user)])
+app.include_router(analytics_advanced.router, tags=["Analytics Advanced"], dependencies=[Depends(get_current_user)])
 
 
 @app.get("/")
