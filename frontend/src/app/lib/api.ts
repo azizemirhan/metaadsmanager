@@ -584,6 +584,441 @@ export const api = {
       minutes: number[];
     }>("/api/scheduled-reports/metadata/frequencies"),
 
+  // Campaign Automation API
+  getAutomationRules: (adAccountId?: string | null, isActive?: boolean | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    if (isActive !== null && isActive !== undefined) params.set("is_active", String(isActive));
+    return apiFetch<{ data: AutomationRule[]; count: number }>(`/api/automation/rules?${params}`);
+  },
+
+  createAutomationRule: (body: {
+    name: string;
+    description?: string;
+    metric: string;
+    condition: string;
+    threshold: number;
+    action: string;
+    action_value?: number;
+    ad_account_id?: string | null;
+    campaign_ids?: string[];
+    notify_email?: string;
+    notify_whatsapp?: string;
+    cooldown_minutes?: number;
+  }) =>
+    apiFetch<{ success: boolean; data: AutomationRule }>("/api/automation/rules", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateAutomationRule: (ruleId: string, body: Partial<AutomationRule>) =>
+    apiFetch<{ success: boolean; data: AutomationRule }>(`/api/automation/rules/${ruleId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  deleteAutomationRule: (ruleId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/automation/rules/${ruleId}`, {
+      method: "DELETE",
+    }),
+
+  toggleAutomationRule: (ruleId: string) =>
+    apiFetch<{ success: boolean; is_active: boolean; message: string }>(`/api/automation/rules/${ruleId}/toggle`, {
+      method: "POST",
+    }),
+
+  runAutomationRule: (ruleId: string, dryRun = false) =>
+    apiFetch<{ rule: AutomationRule; dry_run: boolean; triggered_count: number; results: AutomationResult[] }>(
+      `/api/automation/rules/${ruleId}/run?dry_run=${dryRun}`,
+      { method: "POST" }
+    ),
+
+  runAllAutomationRules: (adAccountId?: string | null, dryRun = false) => {
+    const params = new URLSearchParams({ dry_run: String(dryRun) });
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ rules_checked: number; total_triggered: number; dry_run: boolean; results: AutomationResult[] }>(
+      `/api/automation/run-all?${params}`,
+      { method: "POST" }
+    );
+  },
+
+  getAutomationLogs: (ruleId?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (ruleId) params.set("rule_id", ruleId);
+    if (limit) params.set("limit", String(limit));
+    return apiFetch<{ data: AutomationLog[]; count: number }>(`/api/automation/logs?${params}`);
+  },
+
+  getAutomationMeta: () =>
+    apiFetch<{
+      metrics: { id: string; name: string; unit: string }[];
+      conditions: { id: string; name: string; description: string }[];
+      actions: { id: string; name: string; description: string; requires_value?: boolean }[];
+      examples: { name: string; metric: string; condition: string; threshold: number; action: string; action_value?: number; description: string }[];
+    }>("/api/automation/meta"),
+
+  // ─── Security API (Feature 7) ──────────────────────────────────────────────
+
+  getTwoFAStatus: () =>
+    apiFetch<{ enabled: boolean; configured: boolean }>("/api/security/2fa/status"),
+
+  setupTwoFA: () =>
+    apiFetch<{ secret: string; uri: string; message: string }>("/api/security/2fa/setup", { method: "POST" }),
+
+  enableTwoFA: (code: string) =>
+    apiFetch<{ success: boolean; backup_codes: string[] }>("/api/security/2fa/enable", {
+      method: "POST", body: JSON.stringify({ code }),
+    }),
+
+  disableTwoFA: (code: string) =>
+    apiFetch<{ success: boolean; message: string }>("/api/security/2fa/disable", {
+      method: "POST", body: JSON.stringify({ code }),
+    }),
+
+  listAPIKeys: () =>
+    apiFetch<{ data: APIKeyItem[]; count: number }>("/api/security/api-keys"),
+
+  createAPIKey: (body: { name: string; expires_days?: number | null }) =>
+    apiFetch<{ success: boolean; data: APIKeyItem; message: string }>("/api/security/api-keys", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  revokeAPIKey: (keyId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/security/api-keys/${keyId}`, { method: "DELETE" }),
+
+  rotateAPIKey: (keyId: string, body: { name: string; expires_days?: number | null }) =>
+    apiFetch<{ success: boolean; data: APIKeyItem; old_key_id: string }>(`/api/security/api-keys/${keyId}/rotate`, {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  getAuditLogs: (params?: { user_email?: string; action?: string; resource_type?: string; limit?: number }) => {
+    const p = new URLSearchParams();
+    if (params?.user_email) p.set("user_email", params.user_email);
+    if (params?.action) p.set("action", params.action);
+    if (params?.resource_type) p.set("resource_type", params.resource_type);
+    if (params?.limit) p.set("limit", String(params.limit));
+    return apiFetch<{ data: AuditLogEntry[]; count: number }>(`/api/security/audit-logs?${p}`);
+  },
+
+  // ─── AI Templates API (Feature 8) ─────────────────────────────────────────
+
+  getAITemplates: (contextType?: string, language?: string) => {
+    const p = new URLSearchParams();
+    if (contextType) p.set("context_type", contextType);
+    if (language) p.set("language", language);
+    return apiFetch<{ data: AIAnalysisTemplate[]; count: number }>(`/api/ai-templates/templates?${p}`);
+  },
+
+  createAITemplate: (body: { name: string; description?: string; context_type: string; prompt_template: string; language: string; is_default: boolean }) =>
+    apiFetch<{ success: boolean; data: AIAnalysisTemplate }>("/api/ai-templates/templates", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  updateAITemplate: (id: string, body: { name: string; description?: string; context_type: string; prompt_template: string; language: string; is_default: boolean }) =>
+    apiFetch<{ success: boolean; data: AIAnalysisTemplate }>(`/api/ai-templates/templates/${id}`, {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  deleteAITemplate: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/ai-templates/templates/${id}`, { method: "DELETE" }),
+
+  seedDefaultAITemplates: () =>
+    apiFetch<{ success: boolean; added: string[]; skipped: number }>("/api/ai-templates/templates/seed-defaults", { method: "POST" }),
+
+  getContextEntries: (contextType?: string, limit?: number) => {
+    const p = new URLSearchParams();
+    if (contextType) p.set("context_type", contextType);
+    if (limit) p.set("limit", String(limit));
+    return apiFetch<{ data: AIContextEntry[]; count: number }>(`/api/ai-templates/context-entries?${p}`);
+  },
+
+  createContextEntry: (body: { context_type: string; period_label: string; insights: string; key_metrics?: Record<string, unknown> | null; ad_account_id?: string | null }) =>
+    apiFetch<{ success: boolean; data: AIContextEntry }>("/api/ai-templates/context-entries", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  deleteContextEntry: (id: string) =>
+    apiFetch<{ success: boolean }>(`/api/ai-templates/context-entries/${id}`, { method: "DELETE" }),
+
+  getContextSummary: (adAccountId?: string | null, lastN?: number) => {
+    const p = new URLSearchParams();
+    if (adAccountId) p.set("ad_account_id", adAccountId);
+    if (lastN) p.set("last_n", String(lastN));
+    return apiFetch<{ summary: string; entry_count: number }>(`/api/ai-templates/context-entries/summary?${p}`);
+  },
+
+  getAILanguage: () =>
+    apiFetch<{ language: string; language_name: string; available: Record<string, string> }>("/api/ai-templates/language"),
+
+  setAILanguage: (language: string) =>
+    apiFetch<{ success: boolean; language: string; language_name: string }>("/api/ai-templates/language", {
+      method: "PUT", body: JSON.stringify({ language }),
+    }),
+
+  getAITemplateMeta: () =>
+    apiFetch<{
+      context_types: { id: string; name: string }[];
+      languages: { code: string; name: string }[];
+      template_variables: { var: string; description: string }[];
+    }>("/api/ai-templates/meta"),
+
+  // ─── Campaign Templates API (Feature 9) ───────────────────────────────────
+
+  getCampaignTemplates: (adAccountId?: string | null) => {
+    const p = new URLSearchParams();
+    if (adAccountId) p.set("ad_account_id", adAccountId);
+    return apiFetch<{ data: CampaignTemplateItem[]; count: number }>(`/api/campaign-templates?${p}`);
+  },
+
+  createCampaignTemplate: (body: { name: string; description?: string; objective?: string; daily_budget?: number; lifetime_budget?: number; ad_account_id?: string | null }) =>
+    apiFetch<{ success: boolean; data: CampaignTemplateItem }>("/api/campaign-templates", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  updateCampaignTemplate: (id: string, body: { name: string; description?: string; objective?: string; daily_budget?: number; lifetime_budget?: number; ad_account_id?: string | null }) =>
+    apiFetch<{ success: boolean; data: CampaignTemplateItem }>(`/api/campaign-templates/${id}`, {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  deleteCampaignTemplate: (id: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/campaign-templates/${id}`, { method: "DELETE" }),
+
+  applyCampaignTemplate: (id: string, body: { name: string; ad_account_id?: string | null; status?: string }) =>
+    apiFetch<{ success: boolean; campaign_id: string; name: string; template_id: string; message: string }>(`/api/campaign-templates/${id}/apply`, {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  cloneCampaign: (body: { campaign_id: string; new_name?: string; status?: string; ad_account_id?: string | null; save_as_template?: boolean; template_name?: string }) =>
+    apiFetch<{ success: boolean; original_campaign_id: string; new_campaign_id: string; new_name: string; saved_template?: CampaignTemplateItem | null }>("/api/campaign-templates/clone", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  saveTemplateFromCampaign: (campaignId: string, templateName?: string, adAccountId?: string | null) => {
+    const p = new URLSearchParams({ campaign_id: campaignId });
+    if (templateName) p.set("template_name", templateName);
+    if (adAccountId) p.set("ad_account_id", adAccountId);
+    return apiFetch<{ success: boolean; data: CampaignTemplateItem }>(`/api/campaign-templates/save-from-campaign?${p}`, { method: "POST" });
+  },
+
+  // ─── Cloud Export API (Feature 10) ────────────────────────────────────────
+
+  getCloudConfig: () =>
+    apiFetch<{
+      provider: string;
+      s3: { access_key_id?: string | null; secret_access_key?: string | null; region: string; bucket?: string | null };
+      gcs: { project_id?: string | null; credentials_json?: string | null; bucket?: string | null };
+      archive: { auto_archive: boolean; prefix: string; retention_days: number };
+      supported_providers: string[];
+    }>("/api/cloud-export/config"),
+
+  updateCloudConfig: (body: {
+    provider?: string;
+    aws_access_key_id?: string;
+    aws_secret_access_key?: string;
+    aws_region?: string;
+    bucket_s3?: string;
+    gcs_project_id?: string;
+    gcs_credentials_json?: string;
+    bucket_gcs?: string;
+    auto_archive?: boolean;
+    archive_prefix?: string;
+    retention_days?: number;
+  }) =>
+    apiFetch<{ success: boolean; updated_keys: string[] }>("/api/cloud-export/config", {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  testCloudConnection: (provider: string, bucket: string) =>
+    apiFetch<{ success: boolean; error?: string }>("/api/cloud-export/test", {
+      method: "POST", body: JSON.stringify({ provider, bucket }),
+    }),
+
+  getCloudExportJobs: (limit?: number) => {
+    const p = new URLSearchParams();
+    if (limit) p.set("limit", String(limit));
+    return apiFetch<{ data: CloudExportJobItem[]; count: number }>(`/api/cloud-export/jobs?${p}`);
+  },
+
+  triggerCloudExport: (body: { file_path: string; object_key?: string; provider?: string; bucket?: string }) =>
+    apiFetch<{ success: boolean; job: CloudExportJobItem; upload_result: { url: string; file_size_bytes: number } }>("/api/cloud-export/export", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+
+  archiveToCloud: (body?: { provider?: string; bucket?: string; prefix?: string }) =>
+    apiFetch<{ success: boolean; job_id: string; uploaded: number; files: { file: string; key: string; size?: number }[]; errors: { file: string; error: string }[] }>("/api/cloud-export/archive", {
+      method: "POST", body: JSON.stringify(body || {}),
+    }),
+
+  getArchiveSettings: () =>
+    apiFetch<{ auto_archive: boolean; prefix: string; retention_days: number; provider: string }>("/api/cloud-export/archive-settings"),
+
+  updateArchiveSettings: (body: { auto_archive: boolean; prefix?: string; retention_days?: number }) =>
+    apiFetch<{ success: boolean }>("/api/cloud-export/archive-settings", {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  // Audience Management API
+  getAudiences: (adAccountId?: string | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ data: Audience[]; count: number }>(`/api/audiences?${params}`);
+  },
+
+  createCustomAudience: (body: {
+    name: string;
+    description?: string;
+    customer_file_source?: string;
+    ad_account_id?: string | null;
+  }) =>
+    apiFetch<{ success: boolean; data: Audience }>("/api/audiences/custom", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  createLookalikeAudience: (body: {
+    source_audience_id: string;
+    name: string;
+    country: string;
+    ratio?: number;
+    ad_account_id?: string | null;
+  }) =>
+    apiFetch<{ success: boolean; data: Audience }>("/api/audiences/lookalike", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  deleteAudience: (audienceId: string, adAccountId?: string | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ success: boolean; message: string }>(`/api/audiences/${audienceId}?${params}`, {
+      method: "DELETE",
+    });
+  },
+
+  audienceOverlap: (audienceIds: string, adAccountId?: string | null) => {
+    const params = new URLSearchParams({ audience_ids: audienceIds });
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{ overlap: AudienceOverlapResult[] }>(`/api/audiences/overlap?${params}`);
+  },
+
+  exportAudiencesCsv: async (adAccountId?: string | null) => {
+    const params = new URLSearchParams();
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    const res = await fetch(`${API_BASE}/api/audiences/export/csv?${params}`);
+    if (!res.ok) throw new Error("CSV indirilemedi");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audiences_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  // Competitor Analysis API
+  searchCompetitorAds: (params: {
+    q?: string;
+    countries?: string;
+    ad_type?: string;
+    active_status?: string;
+    page_ids?: string;
+    date_min?: string;
+    date_max?: string;
+    limit?: number;
+  }) => {
+    const p = new URLSearchParams();
+    if (params.q) p.set("q", params.q);
+    if (params.countries) p.set("countries", params.countries);
+    if (params.ad_type) p.set("ad_type", params.ad_type);
+    if (params.active_status) p.set("active_status", params.active_status);
+    if (params.page_ids) p.set("page_ids", params.page_ids);
+    if (params.date_min) p.set("date_min", params.date_min);
+    if (params.date_max) p.set("date_max", params.date_max);
+    if (params.limit) p.set("limit", String(params.limit));
+    return apiFetch<{ ads: CompetitorAd[]; total: number; has_next: boolean }>(`/api/competitor/search?${p}`);
+  },
+
+  getCompetitorPage: (pageId: string) =>
+    apiFetch<{ id: string; name: string; category?: string; fan_count?: number; active_ads?: number; total_ads?: number }>(`/api/competitor/page/${pageId}`),
+
+  analyzeCompetitor: (pageId: string, countries = "TR", limit = 50) =>
+    apiFetch<{
+      page_id: string;
+      total_ads: number;
+      active_ads: number;
+      inactive_ads: number;
+      avg_body_length: number;
+      common_keywords: { word: string; count: number }[];
+      ads: CompetitorAd[];
+    }>(`/api/competitor/analyze?page_id=${encodeURIComponent(pageId)}&countries=${countries}&limit=${limit}`),
+
+  // Analytics Advanced API
+  runABTest: (body: {
+    campaign_ids: string[];
+    metric: string;
+    days?: number;
+  }) =>
+    apiFetch<ABTestResult>("/api/analytics/ab-test", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getCohortAnalysis: (params: {
+    days?: number;
+    cohort_by?: string;
+    metric?: string;
+    ad_account_id?: string | null;
+  }) => {
+    const p = new URLSearchParams();
+    if (params.days) p.set("days", String(params.days));
+    if (params.cohort_by) p.set("cohort_by", params.cohort_by);
+    if (params.metric) p.set("metric", params.metric);
+    if (params.ad_account_id) p.set("ad_account_id", params.ad_account_id);
+    return apiFetch<CohortAnalysisResult>(`/api/analytics/cohort?${p}`);
+  },
+
+  runAttributionModel: (body: {
+    model: string;
+    days?: number;
+    ad_account_id?: string | null;
+  }) =>
+    apiFetch<AttributionResult>("/api/analytics/attribution", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getCustomMetrics: () =>
+    apiFetch<{ data: CustomMetric[]; count: number }>("/api/analytics/custom-metrics"),
+
+  createCustomMetric: (body: {
+    name: string;
+    formula: string;
+    description?: string;
+    format?: string;
+    unit?: string;
+  }) =>
+    apiFetch<{ success: boolean; data: CustomMetric }>("/api/analytics/custom-metrics", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  deleteCustomMetric: (metricId: string) =>
+    apiFetch<{ success: boolean; message: string }>(`/api/analytics/custom-metrics/${metricId}`, {
+      method: "DELETE",
+    }),
+
+  calculateCustomMetric: (metricId: string, adAccountId?: string | null, days = 30) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (adAccountId) params.set("ad_account_id", adAccountId);
+    return apiFetch<{
+      metric: CustomMetric;
+      results: { campaign_id: string; campaign_name: string; value: number | null; error?: string }[];
+      days: number;
+    }>(`/api/analytics/custom-metrics/${metricId}/calculate?${params}`, {
+      method: "POST",
+    });
+  },
+
   // Auth (login/register token dışında çağrılır; 401'de yönlendirme yine apiFetch'te)
   authLogin: (email: string, password: string) =>
     apiFetch<{ access_token: string; token_type: string; user: AuthUser }>("/api/auth/login", {
@@ -838,4 +1273,262 @@ export interface AlertMetricsResponse {
   conditions: AlertConditionInfo[];
   channels: AlertChannelInfo[];
   examples: { name: string; metric: string; condition: string; threshold: number; description: string }[];
+}
+
+// Automation Types
+export interface AutomationRule {
+  id: string;
+  name: string;
+  description?: string;
+  metric: string;
+  condition: "lt" | "gt";
+  threshold: number;
+  action: "pause" | "resume" | "notify" | "budget_decrease" | "budget_increase";
+  action_value?: number;
+  ad_account_id?: string | null;
+  campaign_ids?: string[];
+  notify_email?: string;
+  notify_whatsapp?: string;
+  is_active: boolean;
+  cooldown_minutes: number;
+  last_triggered?: string;
+  trigger_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AutomationLog {
+  id: string;
+  rule_id: string;
+  campaign_id: string;
+  campaign_name?: string;
+  action_taken: string;
+  metric: string;
+  threshold: number;
+  actual_value: number;
+  success: boolean;
+  message: string;
+  error?: string;
+  executed_at: string;
+}
+
+export interface AutomationResult {
+  campaign_id: string;
+  campaign_name: string;
+  metric: string;
+  actual_value: number;
+  threshold: number;
+  action: string;
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+// Audience Types
+export interface Audience {
+  id: string;
+  name: string;
+  description?: string;
+  subtype: string;
+  approximate_count?: number;
+  approximate_count_lower_bound?: number;
+  approximate_count_upper_bound?: number;
+  data_source?: { type: string; creation_params?: Record<string, unknown> };
+  delivery_status?: { code: number; description: string };
+  operation_status?: { code: number; description: string };
+  time_created?: string;
+  time_updated?: string;
+  lookalike_spec?: { ratio: number; country: string; starting_ratio?: number };
+}
+
+export interface AudienceOverlapResult {
+  audience_id_1: string;
+  audience_id_2: string;
+  audience_name_1?: string;
+  audience_name_2?: string;
+  overlap_estimate?: number;
+  audience_1_size?: number;
+  audience_2_size?: number;
+  overlap_percentage?: number;
+}
+
+// Competitor Ad Types
+export interface CompetitorAd {
+  id: string;
+  page_id?: string;
+  page_name?: string;
+  body?: string;
+  bodies?: string[];
+  title?: string;
+  caption?: string;
+  description?: string;
+  snapshot_url?: string;
+  start_date?: string;
+  stop_date?: string;
+  countries?: string[];
+  bylines?: string[];
+  is_active: boolean;
+}
+
+// Analytics Advanced Types
+export interface ABTestVariant {
+  campaign_id: string;
+  campaign_name: string;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  spend: number;
+  ctr: number;
+  cpc: number;
+  roas: number;
+}
+
+export interface ABTestComparison {
+  variant_a: string;
+  variant_b: string;
+  metric: string;
+  value_a: number;
+  value_b: number;
+  z_score: number;
+  p_value: number;
+  significant: boolean;
+  winner?: string;
+  confidence: number;
+}
+
+export interface ABTestResult {
+  variants: ABTestVariant[];
+  comparisons: ABTestComparison[];
+  winner?: string;
+  metric: string;
+  days: number;
+}
+
+export interface CohortGroup {
+  cohort: string;
+  total_spend: number;
+  total_impressions: number;
+  total_clicks: number;
+  avg_ctr: number;
+  days: number;
+}
+
+export interface CohortAnalysisResult {
+  cohorts: CohortGroup[];
+  cohort_by: string;
+  metric: string;
+  days: number;
+}
+
+export interface AttributionWeight {
+  campaign_id: string;
+  campaign_name: string;
+  spend: number;
+  clicks: number;
+  conversions: number;
+  attributed_weight: number;
+  attributed_conversions: number;
+}
+
+export interface AttributionResult {
+  model: string;
+  model_name: string;
+  weights: AttributionWeight[];
+  total_conversions: number;
+  days: number;
+}
+
+// Custom Metric Types
+export interface CustomMetric {
+  id: string;
+  name: string;
+  formula: string;
+  description?: string;
+  format?: string;
+  unit?: string;
+  created_at?: string;
+}
+
+// ─── Feature 7: Security Types ────────────────────────────────────────────────
+
+export interface APIKeyItem {
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  key?: string | null;
+  is_active: boolean;
+  expires_at?: string | null;
+  last_used_at?: string | null;
+  created_at?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  action: string;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  details?: Record<string, unknown> | null;
+  ip_address?: string | null;
+  created_at?: string;
+}
+
+// ─── Feature 8: AI Template Types ────────────────────────────────────────────
+
+export interface AIAnalysisTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  context_type: string;
+  prompt_template: string;
+  language: string;
+  is_default: boolean;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string | null;
+}
+
+export interface AIContextEntry {
+  id: string;
+  ad_account_id?: string | null;
+  context_type: string;
+  period_label: string;
+  key_metrics?: Record<string, unknown> | null;
+  insights: string;
+  created_at?: string;
+}
+
+// ─── Feature 9: Campaign Template Types ───────────────────────────────────────
+
+export interface CampaignTemplateItem {
+  id: string;
+  name: string;
+  description?: string;
+  objective: string;
+  status: string;
+  daily_budget?: number | null;
+  lifetime_budget?: number | null;
+  targeting?: Record<string, unknown> | null;
+  ad_account_id?: string | null;
+  source_campaign_id?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string | null;
+}
+
+// ─── Feature 10: Cloud Export Types ───────────────────────────────────────────
+
+export interface CloudExportJobItem {
+  id: string;
+  provider: string;
+  bucket: string;
+  object_key: string;
+  file_path?: string | null;
+  file_size_bytes?: number | null;
+  status: string;
+  error_message?: string | null;
+  created_at?: string;
+  completed_at?: string | null;
 }

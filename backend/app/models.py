@@ -124,6 +124,127 @@ class AlertHistory(Base):
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
+class CampaignAutomationRule(Base):
+    """Kampanya otomasyon kuralı: metrik eşiğine göre otomatik aksiyon alır."""
+    __tablename__ = "campaign_automation_rules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Tetikleyici koşul
+    metric: Mapped[str] = mapped_column(String(64), nullable=False)  # ctr, roas, spend, cpc, cpm, frequency
+    condition: Mapped[str] = mapped_column(String(32), nullable=False)  # lt, gt
+    threshold: Mapped[float] = mapped_column(nullable=False)
+
+    # Aksiyon
+    action: Mapped[str] = mapped_column(String(32), nullable=False)  # pause, resume, notify, budget_decrease, budget_increase
+    action_value: Mapped[Optional[float]] = mapped_column(nullable=True)  # budget değişim yüzdesi (örn. 20 = %20)
+
+    # Kapsam
+    ad_account_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    campaign_ids: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Boşsa tüm kampanyalar
+
+    # Bildirim
+    notify_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    notify_whatsapp: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # Durum
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    cooldown_minutes: Mapped[int] = mapped_column(default=60)
+    last_triggered: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    trigger_count: Mapped[int] = mapped_column(default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CampaignAutomationLog(Base):
+    """Otomasyon kuralı çalıştırma geçmişi."""
+    __tablename__ = "campaign_automation_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    rule_id: Mapped[str] = mapped_column(String(36), ForeignKey("campaign_automation_rules.id", ondelete="CASCADE"), nullable=False)
+    campaign_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    campaign_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    action_taken: Mapped[str] = mapped_column(String(32), nullable=False)
+    metric: Mapped[str] = mapped_column(String(64), nullable=False)
+    threshold: Mapped[float] = mapped_column(nullable=False)
+    actual_value: Mapped[float] = mapped_column(nullable=False)
+
+    success: Mapped[bool] = mapped_column(Boolean, default=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+def automation_rule_to_dict(row: CampaignAutomationRule) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "description": row.description,
+        "metric": row.metric,
+        "condition": row.condition,
+        "threshold": row.threshold,
+        "action": row.action,
+        "action_value": row.action_value,
+        "ad_account_id": row.ad_account_id,
+        "campaign_ids": row.campaign_ids or [],
+        "notify_email": row.notify_email,
+        "notify_whatsapp": row.notify_whatsapp,
+        "is_active": row.is_active,
+        "cooldown_minutes": row.cooldown_minutes,
+        "last_triggered": row.last_triggered.isoformat() if row.last_triggered else None,
+        "trigger_count": row.trigger_count,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def automation_log_to_dict(row: CampaignAutomationLog) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "rule_id": row.rule_id,
+        "campaign_id": row.campaign_id,
+        "campaign_name": row.campaign_name,
+        "action_taken": row.action_taken,
+        "metric": row.metric,
+        "threshold": row.threshold,
+        "actual_value": row.actual_value,
+        "success": row.success,
+        "message": row.message,
+        "error": row.error,
+        "executed_at": row.executed_at.isoformat() if row.executed_at else None,
+    }
+
+
+class CustomMetric(Base):
+    """Kullanıcı tanımlı hesaplama formülü (analytics_advanced'de kullanılır)."""
+    __tablename__ = "custom_metrics"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    formula: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    format: Mapped[str] = mapped_column(String(32), default="number")  # number | percent | currency
+    unit: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+def custom_metric_to_dict(row: "CustomMetric") -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "formula": row.formula,
+        "description": row.description,
+        "format": row.format,
+        "unit": row.unit,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
 def saved_report_to_dict(row: SavedReport) -> dict[str, Any]:
     """ORM SavedReport -> API için dict."""
     return {
@@ -263,4 +384,209 @@ def scheduled_report_log_to_dict(row: ScheduledReportLog) -> dict[str, Any]:
         "ai_analysis": row.ai_analysis,
         "error_message": row.error_message,
         "channels_sent": row.channels_sent or [],
+    }
+
+
+# ─── Feature 7: Güvenlik Modelleri ───────────────────────────────────────────
+
+class UserTwoFA(Base):
+    """Kullanıcı iki faktörlü doğrulama (TOTP) ayarları."""
+    __tablename__ = "user_two_fa"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    secret: Mapped[str] = mapped_column(String(64), nullable=False)  # Base32 TOTP secret
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    backup_codes: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # Hash'lenmiş yedek kodlar
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class APIKey(Base):
+    """Kullanıcı API anahtarı (programatik erişim için)."""
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    key_prefix: Mapped[str] = mapped_column(String(16), nullable=False)  # İlk 8 karakter (görüntülemek için)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class AuditLog(Base):
+    """Admin/manager aksiyon denetim izi."""
+    __tablename__ = "audit_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    user_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    action: Mapped[str] = mapped_column(String(128), nullable=False)  # "user.create", "campaign.pause", vb.
+    resource_type: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    resource_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+def audit_log_to_dict(row: AuditLog) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "user_email": row.user_email,
+        "action": row.action,
+        "resource_type": row.resource_type,
+        "resource_id": row.resource_id,
+        "details": row.details,
+        "ip_address": row.ip_address,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def api_key_to_dict(row: APIKey, show_full: str | None = None) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "name": row.name,
+        "key_prefix": row.key_prefix,
+        "key": show_full,  # Sadece oluşturulduğunda gösterilir
+        "is_active": row.is_active,
+        "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+        "last_used_at": row.last_used_at.isoformat() if row.last_used_at else None,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+# ─── Feature 8: AI Geliştirme Modelleri ──────────────────────────────────────
+
+class AIAnalysisTemplate(Base):
+    """Özelleştirilebilir AI analiz şablonu."""
+    __tablename__ = "ai_analysis_templates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    context_type: Mapped[str] = mapped_column(String(32), nullable=False, default="general")
+    # general | campaign | weekly | forecast | anomaly
+    prompt_template: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str] = mapped_column(String(8), default="tr")  # tr, en, de, fr, es
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AIContextEntry(Base):
+    """Tarihsel AI bağlam girdisi (trend hafızası)."""
+    __tablename__ = "ai_context_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    ad_account_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    context_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    # weekly_summary | anomaly | forecast | insight
+    period_label: Mapped[str] = mapped_column(String(64), nullable=False)  # "2024-W01", "2024-02", vb.
+    key_metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    insights: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+def ai_template_to_dict(row: AIAnalysisTemplate) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "description": row.description,
+        "context_type": row.context_type,
+        "prompt_template": row.prompt_template,
+        "language": row.language,
+        "is_default": row.is_default,
+        "created_by": row.created_by,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def ai_context_entry_to_dict(row: AIContextEntry) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "ad_account_id": row.ad_account_id,
+        "context_type": row.context_type,
+        "period_label": row.period_label,
+        "key_metrics": row.key_metrics,
+        "insights": row.insights,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+# ─── Feature 9: Kampanya Şablon Modelleri ────────────────────────────────────
+
+class CampaignTemplate(Base):
+    """Kampanya şablonu: kaydedilmiş yapılandırma."""
+    __tablename__ = "campaign_templates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    objective: Mapped[str] = mapped_column(String(64), default="OUTCOME_TRAFFIC")
+    status: Mapped[str] = mapped_column(String(32), default="PAUSED")
+    daily_budget: Mapped[Optional[float]] = mapped_column(nullable=True)   # Kuruş cinsinden
+    lifetime_budget: Mapped[Optional[float]] = mapped_column(nullable=True)
+    targeting: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    ad_account_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    source_campaign_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+def campaign_template_to_dict(row: CampaignTemplate) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "name": row.name,
+        "description": row.description,
+        "objective": row.objective,
+        "status": row.status,
+        "daily_budget": row.daily_budget,
+        "lifetime_budget": row.lifetime_budget,
+        "targeting": row.targeting,
+        "ad_account_id": row.ad_account_id,
+        "source_campaign_id": row.source_campaign_id,
+        "created_by": row.created_by,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+# ─── Feature 10: Cloud Export Modeli ─────────────────────────────────────────
+
+class CloudExportJob(Base):
+    """Bulut depolama (S3/GCS) dışa aktarma işi."""
+    __tablename__ = "cloud_export_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(16), nullable=False)  # "s3" | "gcs"
+    bucket: Mapped[str] = mapped_column(String(128), nullable=False)
+    object_key: Mapped[str] = mapped_column(Text, nullable=False)
+    file_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    file_size_bytes: Mapped[Optional[int]] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+def cloud_export_job_to_dict(row: CloudExportJob) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "provider": row.provider,
+        "bucket": row.bucket,
+        "object_key": row.object_key,
+        "file_path": row.file_path,
+        "file_size_bytes": row.file_size_bytes,
+        "status": row.status,
+        "error_message": row.error_message,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
     }
