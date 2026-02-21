@@ -8,7 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# SSL/network hatalarında retry; trusted-host bazı proxy/VPN ortamlarında yardımcı olur
+RUN pip install --no-cache-dir --retries 5 --timeout 120 \
+    --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org \
+    -r requirements.txt
 COPY . .
 
 EXPOSE 8000

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from dotenv import load_dotenv
 from app import config
+from app.cache import cached, invalidate_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +105,9 @@ class MetaAdsService:
             "until": end.strftime("%Y-%m-%d")
         }
 
+    @cached("campaigns", ttl=300)  # 5 dakika cache
     async def get_campaigns(self, days: int = 30, account_id: Optional[str] = None) -> list[dict]:
-        """Tüm kampanyaları ve temel metriklerini getirir"""
+        """Tüm kampanyaları ve temel metriklerini getirir (cache'li)"""
         aid = account_id or _get_default_account_id()
         if not _is_meta_configured(aid):
             return []
@@ -128,6 +130,10 @@ class MetaAdsService:
             await asyncio.sleep(0.5)
 
         return enriched
+    
+    def invalidate_campaigns_cache(self, account_id: Optional[str] = None) -> int:
+        """Kampanya cache'ini temizle."""
+        return invalidate_prefix("campaigns")
 
     async def get_campaign_insights(self, campaign_id: str, days: int = 30) -> dict:
         """Kampanya için performans metrikleri"""

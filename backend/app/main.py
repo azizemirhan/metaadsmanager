@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException
-from app.routers import campaigns, adsets, reports, ai_analysis, email_reports, settings, creatives, ads, whatsapp, jobs, targeting, ad_summaries, alerts, webhooks, scheduled_reports, auth, users
+from app.routers import campaigns, adsets, reports, ai_analysis, email_reports, settings, creatives, ads, whatsapp, jobs, targeting, ad_summaries, alerts, webhooks, scheduled_reports, auth, users, cache as cache_router, slack
 from app import config
 from app.database import init_db
 from app.deps import get_current_user
@@ -102,6 +102,8 @@ app.include_router(ad_summaries.router, prefix="/api/ad-summaries", tags=["Ad Su
 app.include_router(alerts.router, tags=["Alerts"], dependencies=[Depends(get_current_user)])
 app.include_router(webhooks.router, tags=["Webhooks"])  # Meta callback için korumasız
 app.include_router(scheduled_reports.router, tags=["Scheduled Reports"], dependencies=[Depends(get_current_user)])
+app.include_router(cache_router.router, prefix="/api/cache", tags=["Cache"], dependencies=[Depends(get_current_user)])
+app.include_router(slack.router, prefix="/api/slack", tags=["Slack"], dependencies=[Depends(get_current_user)])
 
 
 @app.get("/")

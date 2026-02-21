@@ -474,7 +474,13 @@ export default function ReportsPage() {
                     <div className="flex gap-2 mt-2">
                       <button
                         type="button"
-                        onClick={() => window.open(api.getJobPDF(item.id), '_blank')}
+                        onClick={async () => {
+                          try {
+                            await api.downloadJobPDF(item.id, `analiz_${item.id}.pdf`);
+                          } catch (e) {
+                            alert('PDF indirilemedi: ' + (e as Error).message);
+                          }
+                        }}
                         className="btn-primary text-[10px] px-2 py-1 flex items-center gap-1"
                       >
                         <PDFIcon className="w-3 h-3" />
@@ -482,11 +488,12 @@ export default function ReportsPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = `${api.getJobPDF(item.id)}?download=1`;
-                          link.download = `analiz_${item.id}.pdf`;
-                          link.click();
+                        onClick={async () => {
+                          try {
+                            await api.downloadJobPDF(item.id, `analiz_${item.id}.pdf`);
+                          } catch (e) {
+                            alert('PDF indirilemedi: ' + (e as Error).message);
+                          }
                         }}
                         className="btn-outline text-[10px] px-2 py-1"
                       >

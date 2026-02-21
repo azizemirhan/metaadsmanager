@@ -187,8 +187,14 @@ export const api = {
     apiFetch<{ data: ReportTemplate[]; count: number }>("/api/reports/templates"),
   exportTemplateCsv: async (templateId: string, days: number, adAccountId?: string | null) => {
     const q = `days=${days}${adAccountId ? `&ad_account_id=${encodeURIComponent(adAccountId)}` : ""}`;
-    const res = await fetch(`${API_BASE}/api/reports/export/template/${templateId}?${q}`);
-    if (!res.ok) throw new Error("CSV indirilemedi");
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/reports/export/template/${templateId}?${q}`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "CSV indirilemedi");
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -201,8 +207,14 @@ export const api = {
     if (templateIds.length === 0) throw new Error("En az bir şablon seçin");
     const q = new URLSearchParams({ template_ids: templateIds.join(","), days: String(days) });
     if (adAccountId) q.set("ad_account_id", adAccountId);
-    const res = await fetch(`${API_BASE}/api/reports/export/templates?${q}`);
-    if (!res.ok) throw new Error("ZIP indirilemedi");
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/reports/export/templates?${q}`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "ZIP indirilemedi");
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -228,10 +240,14 @@ export const api = {
   writeSavedReportCsvToDisk: async (reportId: string) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 300000);
+    const token = getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/api/reports/saved/${reportId}/write-csv`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         signal: ctrl.signal,
       });
       clearTimeout(t);
@@ -251,8 +267,14 @@ export const api = {
     }
   },
   exportSavedReportCsv: async (reportId: string) => {
-    const res = await fetch(`${API_BASE}/api/reports/saved/${reportId}/export`);
-    if (!res.ok) throw new Error("İndirilemedi");
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/reports/saved/${reportId}/export`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || "İndirilemedi");
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -264,7 +286,10 @@ export const api = {
   },
   /** Yerelde saklanan son oluşturulmuş CSV/ZIP'i indirir. Meta API çağrısı yapmaz. */
   downloadLastExport: async (reportId: string) => {
-    const res = await fetch(`${API_BASE}/api/reports/saved/${reportId}/last-export`);
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/reports/saved/${reportId}/last-export`, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error((err as { detail?: string }).detail || "İndirilemedi");
@@ -289,8 +314,14 @@ export const api = {
   getJobStatus: (jobId: string) =>
     apiFetch<JobStatusResponse>(`/api/jobs/${jobId}`),
   getJobDownload: async (jobId: string) => {
-    const res = await fetch(`${API_BASE}/api/jobs/${jobId}/download`);
-    if (!res.ok) throw new Error("İndirilemedi");
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/jobs/${jobId}/download`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || "İndirilemedi");
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -302,6 +333,23 @@ export const api = {
     URL.revokeObjectURL(url);
   },
   getJobPDF: (jobId: string) => `${API_BASE}/api/jobs/${jobId}/pdf`,
+  downloadJobPDF: async (jobId: string, filename?: string) => {
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/jobs/${jobId}/pdf?download=1`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || "PDF indirilemedi");
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || `analiz_${jobId}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
   getAnalysisHistory: () =>
     apiFetch<{ data: JobStatusResponse[]; count: number }>("/api/jobs/history/analyze"),
   deleteJob: (jobId: string) =>
@@ -340,10 +388,14 @@ export const api = {
   }) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 120000);
+    const token = getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/api/ai/generate-strategic-ad-summary`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(body),
         signal: ctrl.signal,
       });
@@ -367,8 +419,14 @@ export const api = {
 
   // Reports
   exportCsv: async (type = "campaigns", days = 30) => {
-    const res = await fetch(`${API_BASE}/api/reports/export/csv?type=${type}&days=${days}`);
-    if (!res.ok) throw new Error("Export hatası");
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/reports/export/csv?type=${type}&days=${days}`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Export hatası");
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -379,8 +437,14 @@ export const api = {
   },
 
   exportHtml: async (reportType = "weekly_summary", days = 30) => {
-    const res = await fetch(`${API_BASE}/api/reports/export/html?report_type=${reportType}&days=${days}`);
-    if (!res.ok) throw new Error("HTML export hatası");
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/reports/export/html?report_type=${reportType}&days=${days}`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || "HTML export hatası");
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

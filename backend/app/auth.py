@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from passlib.exc import UnknownHashError
 
 # Ortam değişkenleri (config'den de alınabilir)
 JWT_SECRET = os.getenv("JWT_SECRET", "metaads-change-me-in-production-secret-key-32chars")
@@ -21,7 +22,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return pwd_context.verify(plain, hashed)
+    except (ValueError, TypeError, UnknownHashError):
+        return False
 
 
 def create_access_token(sub: str, email: str, role: str, username: str) -> str:

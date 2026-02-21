@@ -1,0 +1,35 @@
+# Test environment - Docker ile test çalıştırma
+version: "3.8"
+
+services:
+  postgres_test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: metaads
+      POSTGRES_PASSWORD: metaads
+      POSTGRES_DB: metaads_test
+    ports:
+      - "5433:5432"  # Farklı port
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  backend_test:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://metaads:metaads@postgres_test:5432/metaads_test
+      DATABASE_URL_SYNC: postgresql://metaads:metaads@postgres_test:5432/metaads_test
+      JWT_SECRET: test-secret-key-for-testing-only
+      ENVIRONMENT: testing
+      CELERY_BROKER_URL: memory://
+      CELERY_RESULT_BACKEND: cache+memory://
+    volumes:
+      - ./backend:/app
+    command: pytest --cov=app --cov-report=term-missing -v
+    depends_on:
+      - postgres_test
+
+  frontend_test:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+    command: npm run test

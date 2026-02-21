@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount, useAuth } from "./Providers";
+import { ThemeToggleSimple } from "./ThemeToggle";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutGridIcon },
@@ -114,6 +115,14 @@ export function Sidebar() {
           <div className="text-xs text-slate-600 leading-relaxed">
             Claude AI ile akıllı reklam optimizasyonu
           </div>
+        </div>
+      </div>
+
+      {/* Theme Toggle */}
+      <div className="px-5 py-2 border-t border-slate-100">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-slate-500">Tema</span>
+          <ThemeToggleSimple />
         </div>
       </div>
 

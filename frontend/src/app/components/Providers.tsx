@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { api } from "../lib/api";
 import { setStoredToken, getStoredToken } from "../lib/api";
 import type { AuthUser } from "../lib/api";
+import { ThemeProvider } from "./ThemeProvider";
 
 type Account = { id: string; name: string };
 type AccountContextType = {
@@ -146,11 +147,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AccountProviderInner>
-          {children}
-        </AccountProviderInner>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AccountProviderInner>
+            {children}
+          </AccountProviderInner>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

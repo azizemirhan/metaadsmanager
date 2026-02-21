@@ -6,14 +6,22 @@
 
 ## ✨ Özellikler
 
+### Çekirdek Özellikler
 - 📈 **Canlı Dashboard** — Kampanya, gösterim, tıklama, CTR, CPC, CPM, ROAS metrikleri
 - 📊 **İnteraktif Grafikler** — Günlük trend, harcama dağılımı, kampanya karşılaştırması
 - 🤖 **AI Analiz (Claude)** — Otomatik kampanya değerlendirmesi ve somut öneriler
 - ⬇️ **CSV Export** — Kampanya, reklam seti ve reklam verilerini indirin
 - 📧 **E-posta Raporlama** — Haftalık AI raporu otomatik e-posta ile gönderim
+- 💬 **WhatsApp Bot** — Otomatik rapor ve uyarı bildirimleri
 - 🔍 **Kampanya Yönetimi** — Filtreleme, sıralama, durum takibi
 
----
+### ⚡ Faz 1 - Yeni Özellikler (2024)
+- ⚡ **Redis Caching** — API yanıt süresi %80'e varan iyileştirme (5dk cache)
+- 🔔 **Slack Entegrasyonu** — Kampanya değişikliklerinde anlık Slack bildirimleri
+- 🌙 **Dark Mode** — Göz yorgunluğunu azaltan koyu tema
+- 🧪 **Test Coverage** — Kapsamlı unit ve integration test altyapısı
+
+---s
 
 ## 🚀 Kurulum
 
@@ -283,7 +291,68 @@ meta-ads-dashboard/
 
 ---
 
+## 🧪 Test
+
+Projede kapsamlı test altyapısı mevcuttur.
+
+### Backend Testleri
+
+```bash
+cd backend
+
+# Geliştirme bağımlılıklarını kur
+pip install -r requirements-dev.txt
+
+# Tüm testleri çalıştır
+pytest
+
+# Sadece unit testler
+pytest -m unit
+
+# Sadece integration testler
+pytest -m integration
+
+# Coverage raporu ile
+pytest --cov=app --cov-report=html --cov-report=term-missing
+
+# Belirli bir test dosyası
+pytest app/tests/unit/test_auth.py -v
+```
+
+### Frontend Testleri
+
+```bash
+cd frontend
+
+# Test bağımlılıklarını kur
+npm install
+
+# Testleri çalıştır
+npm run test
+
+# Watch modunda
+npm run test:watch
+
+# Coverage raporu ile
+npm run test:coverage
+```
+
+### Test Ortamı Kurulumu
+
+Testler için yerel PostgreSQL gereklidir:
+
+```bash
+# Test veritabanını oluştur
+createdb metaads_test
+
+# Test ortamı değişkenleri
+export DATABASE_URL=postgresql+asyncpg://metaads:metaads@localhost:5432/metaads_test
+export JWT_SECRET=test-secret-key
+export ENVIRONMENT=testing
+```
+
+---
+
 ## 📝 Lisans
 
 MIT
-# metaadsmanager

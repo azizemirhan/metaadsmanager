@@ -47,6 +47,8 @@ async def export_template_csv(
     ad_account_id: Optional[str] = Query(None),
 ):
     """Seçilen şablon ve tarih aralığına göre CSV indir."""
+    logger.info(f"Template CSV export: template={template_id}, days={days}, account={ad_account_id}")
+    
     if not any(t["id"] == template_id for t in REPORT_TEMPLATES):
         raise HTTPException(status_code=404, detail="Şablon bulunamadı.")
     try:
@@ -56,18 +58,26 @@ async def export_template_csv(
         columns = get_template_csv_columns(template_id)
         if columns:
             rows = [{k: r.get(k, "") for k in columns} for r in rows]
+        
+        if not rows:
+            logger.warning(f"Template export: Veri bulunamadı (template={template_id})")
+            
         csv_content = meta_service.to_csv(rows)
         title_slug = next((t["id"] for t in REPORT_TEMPLATES if t["id"] == template_id), template_id)
         filename = f"rapor_{title_slug}_{datetime.now().strftime('%Y%m%d')}.csv"
+        
+        logger.info(f"Template CSV export tamamlandı: {filename}")
         return StreamingResponse(
             io.StringIO(csv_content),
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except MetaAPIError as e:
+        logger.error(f"Template CSV MetaAPIError: {e}")
         raise HTTPException(status_code=503, detail=str(e.args[0]) if e.args else "Meta API hatası.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Template CSV export hatası: {e}")
+        raise HTTPException(status_code=500, detail=f"Rapor oluşturulurken hata: {str(e)}")
 
 
 @router.get("/export/templates")
@@ -403,6 +413,8 @@ async def export_csv(
 ):
     """Verileri CSV olarak indir"""
     try:
+        logger.info(f"CSV export başlatıldı: type={type}, days={days}")
+        
         if type == "campaigns":
             data = await meta_service.get_campaigns(days)
         elif type == "ads":
@@ -412,16 +424,25 @@ async def export_csv(
         elif type == "daily":
             data = await meta_service.get_daily_breakdown(days)
 
+        if not data:
+            logger.warning(f"CSV export: Veri bulunamadı (type={type}, days={days})")
+            
         csv_content = meta_service.to_csv(data)
         filename = f"meta_ads_{type}_{datetime.now().strftime('%Y%m%d')}.csv"
+        
+        logger.info(f"CSV export tamamlandı: {filename}, boyut={len(csv_content)} bytes")
 
         return StreamingResponse(
             io.StringIO(csv_content),
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
+    except MetaAPIError as e:
+        logger.error(f"CSV export MetaAPIError: {e}")
+        raise HTTPException(status_code=503, detail=str(e.args[0]) if e.args else "Meta API hatası")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"CSV export hatası: {e}")
+        raise HTTPException(status_code=500, detail=f"CSV oluşturulurken hata: {str(e)}")
 
 
 def _build_html_report(title: str, period: str, body_content: str) -> str:
